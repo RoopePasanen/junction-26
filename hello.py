@@ -1,1 +1,1 @@
-print("Hello, Quantum Business!")
+print("Moikka, Quantum Business!")
