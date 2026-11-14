@@ -1,0 +1,6 @@
+{
+  "name": "SuomiKartta — Finland Map Explorer",
+  "description": "Interactive map of Finland featuring precision zoom controls, regional viewports, and seamless switching between base map and satellite modes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
