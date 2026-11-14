@@ -1,21 +1,32 @@
 import type {
   PlannedCameraNode,
-  SectorId,
   SpeciesCollisionBreakdown,
 } from '../data/finlandWildlifePlan.ts';
-import type {
-  CustomAreaPlanResult,
-  CustomAreaRequestParams,
+import {
+  MAX_PLOTTED_CAMERAS,
+  MIN_PLOTTED_CAMERAS,
+  type CustomAreaPlanResult,
+  type CustomAreaRequestParams,
+  type DrawnAreaPlotRequestParams,
 } from '../types/customAreaPlan.ts';
+import {
+  computePolygonAreaKm2,
+  computePolygonBBox,
+  isPointInLatLngPolygon,
+  type SimpleLatLng,
+} from '../utils/polygonGeometry.ts';
+import {
+  ensureAccidentsForPolygon,
+  queryLocalAccidentsForPolygon,
+  queryLocalWarningCorridorsInBbox,
+} from './rambollLocalStore.ts';
 
-const RAMBOLL_TILE_BASE_URL =
-  'https://mobilityanalytics.ramboll.com/onn/hirvielain/data/tiles';
 const RAMBOLL_SOURCE_URL = 'https://mobilityanalytics.ramboll.com/onn/hirvielain/';
 const VAYLA_OGC_BASE_URL =
   'https://avoinapi.vaylapilvi.fi/vaylatiedot/ogc/features/v1/collections';
 
 const EARTH_RADIUS_M = 6_371_008.8;
-const TARGET_CAMERA_COUNT = 100;
+const ROADSIDE_SHOULDER_OFFSET_M = 2.5;
 
 export interface DecodedRambollAccident {
   lat: number;
@@ -25,54 +36,196 @@ export interface DecodedRambollAccident {
   month: number;
 }
 
+/**
+ * Road size hierarchy matching the base map's visual road classification:
+ * 1 = Large (orange-hued) roads: all state-numbered highways/regional/connecting roads (Vt, Kt, St, Yt 1–19999)
+ *     plus municipal main arterials & Class I–II cartographic collectors (`toiminn_lk <= 3` or `mtk_tie_lk <= 12122`).
+ * 2 = Small (non-orange / white-grey) roads: minor local & residential streets (`toiminn_lk >= 5` or `mtk_tie_lk >= 12131`),
+ *     used only when an area has no orange roads or after all orange roads in the area are properly covered.
+ */
+export type RoadHierarchyTier = 1 | 2;
+
+interface RawRoadLink {
+  roadLabel: string;
+  roadTier: RoadHierarchyTier;
+  hierarchyWeight: number;
+  coords: Array<[number, number]>; // [lng, lat][]
+}
+
 interface RoadSegmentChain {
   roadLabel: string;
+  roadTier: RoadHierarchyTier;
   hierarchyWeight: number;
   coords: Array<[number, number]>; // [lng, lat][]
   cumDistM: number[];
   totalLengthM: number;
 }
 
-interface CandidateRoadStation {
+export interface HierarchicalStationCandidate {
   chainIdx: number;
   stationDistM: number;
   lat: number;
   lng: number;
-  bearingDeg: number;
-  altBearingDeg: number | null;
-  roadLabel: string;
+  roadTier: RoadHierarchyTier;
   hierarchyWeight: number;
-  turnAngleDeg: number;
   score: number;
   accidents500m: number;
+}
+
+interface CandidateRoadStation extends HierarchicalStationCandidate {
+  bearingDeg: number;
+  reverseBearingDeg: number;
+  roadLabel: string;
+  turnAngleDeg: number;
   whiteTailedDeer: number;
   roeDeer: number;
   moose: number;
-  nearbyAccidentIndices: number[];
+  nearbyInsideIndices: number[];
 }
 
-// Simple bounded in-memory LRU cache for Ramboll .pbf tiles so repeat radius tweaks are instant
-const tileBufferCache = new Map<string, Uint8Array | null>();
-const MAX_TILE_CACHE_SIZE = 180;
-
-function getCachedTile(key: string): Uint8Array | null | undefined {
-  if (!tileBufferCache.has(key)) return undefined;
-  const val = tileBufferCache.get(key) ?? null;
-  tileBufferCache.delete(key);
-  tileBufferCache.set(key, val);
-  return val;
+export interface UrbanStreetSample {
+  lat: number;
+  lng: number;
+  lengthM: number;
+  hasAddress: boolean;
 }
 
-function setCachedTile(key: string, val: Uint8Array | null): void {
-  if (tileBufferCache.has(key)) {
-    tileBufferCache.delete(key);
-  } else if (tileBufferCache.size >= MAX_TILE_CACHE_SIZE) {
-    const oldest = tileBufferCache.keys().next().value;
-    if (oldest !== undefined) {
-      tileBufferCache.delete(oldest);
+export interface RawUrbanCentreData {
+  crosswalks: Array<[number, number]>; // [lng, lat][]
+  trafficLights: Array<[number, number]>; // [lng, lat][]
+  municipalStreets: UrbanStreetSample[];
+}
+
+export interface UrbanCentreSpatialIndex {
+  crosswalkBuckets: Map<string, Array<[number, number]>>;
+  trafficLightBuckets: Map<string, Array<[number, number]>>;
+  streetBuckets: Map<string, UrbanStreetSample[]>;
+}
+
+interface CachedRoadBboxData {
+  links: RawRoadLink[];
+  urbanCentreIndex: UrbanCentreSpatialIndex;
+}
+
+const URBAN_CELL_LAT_DEG = 0.006; // ~667 m
+const URBAN_CELL_LNG_DEG = 0.018; // >= 682 m across all latitudes in Finland (59.5°N–70.1°N)
+
+function urbanCellKey(lat: number, lng: number): string {
+  return `${Math.floor(lng / URBAN_CELL_LNG_DEG)}:${Math.floor(lat / URBAN_CELL_LAT_DEG)}`;
+}
+
+export function buildUrbanCentreIndex(raw: RawUrbanCentreData): UrbanCentreSpatialIndex {
+  const crosswalkBuckets = new Map<string, Array<[number, number]>>();
+  const trafficLightBuckets = new Map<string, Array<[number, number]>>();
+  const streetBuckets = new Map<string, UrbanStreetSample[]>();
+
+  for (const pt of raw.crosswalks) {
+    const key = urbanCellKey(pt[1], pt[0]);
+    const list = crosswalkBuckets.get(key);
+    if (list) list.push(pt);
+    else crosswalkBuckets.set(key, [pt]);
+  }
+
+  for (const pt of raw.trafficLights) {
+    const key = urbanCellKey(pt[1], pt[0]);
+    const list = trafficLightBuckets.get(key);
+    if (list) list.push(pt);
+    else trafficLightBuckets.set(key, [pt]);
+  }
+
+  for (const st of raw.municipalStreets) {
+    const key = urbanCellKey(st.lat, st.lng);
+    const list = streetBuckets.get(key);
+    if (list) list.push(st);
+    else streetBuckets.set(key, [st]);
+  }
+
+  return { crosswalkBuckets, trafficLightBuckets, streetBuckets };
+}
+
+/**
+ * Determines whether `(lat, lng)` lies inside a built-up city/town centre area (`keskusta`),
+ * combining pedestrian crosswalk density (`>= 28` within 600 m), signalized downtown intersection
+ * density (`>= 10` within 550 m inside an addressed street grid, or `>= 12` when street data is omitted),
+ * and addressed municipal street-grid density (`>= 10.8 km` and `>= 80` addressed street blocks within 600 m).
+ */
+export function isPointInCityCentreArea(
+  lat: number,
+  lng: number,
+  index: UrbanCentreSpatialIndex
+): boolean {
+  const gx = Math.floor(lng / URBAN_CELL_LNG_DEG);
+  const gy = Math.floor(lat / URBAN_CELL_LAT_DEG);
+  const hasStreetData = index.streetBuckets.size > 0;
+
+  let crosswalks600 = 0;
+  let trafficLights550 = 0;
+  let muniStreetMeters600 = 0;
+  let addressedLinks600 = 0;
+
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const key = `${gx + dx}:${gy + dy}`;
+
+      const cwList = index.crosswalkBuckets.get(key);
+      if (cwList) {
+        for (const [cLng, cLat] of cwList) {
+          if (groundDistanceM(lat, lng, cLat, cLng) <= 600) {
+            crosswalks600++;
+            if (crosswalks600 >= 28) return true;
+          }
+        }
+      }
+
+      const tlList = index.trafficLightBuckets.get(key);
+      if (tlList) {
+        for (const [tLng, tLat] of tlList) {
+          if (groundDistanceM(lat, lng, tLat, tLng) <= 550) {
+            trafficLights550++;
+            if (!hasStreetData && trafficLights550 >= 12) return true;
+          }
+        }
+      }
+
+      const stList = index.streetBuckets.get(key);
+      if (stList) {
+        for (const st of stList) {
+          if (groundDistanceM(lat, lng, st.lat, st.lng) <= 600) {
+            muniStreetMeters600 += st.lengthM;
+            if (st.hasAddress) addressedLinks600++;
+          }
+        }
+      }
     }
   }
-  tileBufferCache.set(key, val);
+
+  if (hasStreetData && trafficLights550 >= 10 && addressedLinks600 >= 45) {
+    return true;
+  }
+
+  return muniStreetMeters600 >= 10_800 && addressedLinks600 >= 80;
+}
+
+// Bounded LRU cache of unclipped Väylävirasto road links + urban centre spatial index by quantized bbox
+const roadBboxCache = new Map<string, CachedRoadBboxData>();
+const MAX_ROAD_BBOX_CACHE = 36;
+
+function getCachedRoads(key: string): CachedRoadBboxData | undefined {
+  const hit = roadBboxCache.get(key);
+  if (!hit) return undefined;
+  roadBboxCache.delete(key);
+  roadBboxCache.set(key, hit);
+  return hit;
+}
+
+function setCachedRoads(key: string, data: CachedRoadBboxData): void {
+  if (roadBboxCache.has(key)) {
+    roadBboxCache.delete(key);
+  } else if (roadBboxCache.size >= MAX_ROAD_BBOX_CACHE) {
+    const oldest = roadBboxCache.keys().next().value;
+    if (oldest !== undefined) roadBboxCache.delete(oldest);
+  }
+  roadBboxCache.set(key, data);
 }
 
 export function groundDistanceM(
@@ -132,354 +285,36 @@ function shortestAngleDiff(aDeg: number, bDeg: number): number {
   return Math.abs((((aDeg - bDeg) % 360) + 540) % 360 - 180);
 }
 
-function lonLatToTileXY(lng: number, lat: number, z: number): { x: number; y: number } {
-  const n = 1 << z;
-  const clampedLat = Math.max(-85.0511, Math.min(85.0511, lat));
-  const x = Math.max(0, Math.min(n - 1, Math.floor(((lng + 180) / 360) * n)));
-  const latRad = (clampedLat * Math.PI) / 180;
-  const y = Math.max(
-    0,
-    Math.min(
-      n - 1,
-      Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n)
-    )
-  );
-  return { x, y };
-}
-
-function tileSubpixelToLngLat(
-  z: number,
-  tileX: number,
-  tileY: number,
-  px: number,
-  py: number,
-  extent: number
-): { lat: number; lng: number } {
-  const n = 1 << z;
-  const lng = ((tileX + px / extent) / n) * 360 - 180;
-  const mercN = Math.PI - (2 * Math.PI * (tileY + py / extent)) / n;
-  const lat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(mercN) - Math.exp(-mercN)));
-  return { lat, lng };
-}
-
 /**
- * Pure-TypeScript Mapbox Vector Tile (.pbf) decoder for Ramboll's `accidents` point layer.
+ * Classifies an official Finnish state road number (`tie` in Väylävirasto tieosoiteverkko / Digiroad).
+ * All state-numbered motor corridors (`tie 1..19999`: Vt, Kt, St, and Yt) are rendered with an orange hue on the base map
+ * and therefore belong to `roadTier = 1` ("large" orange roads), with gently graduated prominence weights.
+ * Returns `null` for non-corridor links (`tie >= 20000`: interchange slip ramps, service links, and `70000+` cycle/pedestrian paths).
  */
-export function decodeRambollMvtAccidentsTile(
-  buf: Uint8Array,
-  z: number,
-  tileX: number,
-  tileY: number
-): DecodedRambollAccident[] {
-  const results: DecodedRambollAccident[] = [];
-  if (!buf || buf.length === 0) return results;
-
-  const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
-  const textDecoder = new TextDecoder('utf-8');
-  let pos = 0;
-
-  const readVarint = (): number => {
-    let result = 0;
-    let shift = 0;
-    while (pos < buf.length) {
-      const b = buf[pos++];
-      result += (b & 0x7f) * Math.pow(2, shift);
-      if ((b & 0x80) === 0) return result;
-      shift += 7;
-    }
-    return result;
-  };
-
-  const zigzagDecode = (n: number): number => (n >>> 1) ^ -(n & 1);
-
-  const skipWire = (wireType: number): void => {
-    if (wireType === 0) {
-      readVarint();
-    } else if (wireType === 1) {
-      pos += 8;
-    } else if (wireType === 2) {
-      const len = readVarint();
-      pos += len;
-    } else if (wireType === 5) {
-      pos += 4;
-    } else {
-      pos = buf.length;
-    }
-  };
-
-  while (pos < buf.length) {
-    const tag = readVarint();
-    const field = tag >>> 3;
-    const wireType = tag & 7;
-
-    if (field === 3 && wireType === 2) {
-      const layerLen = readVarint();
-      const layerEnd = Math.min(buf.length, pos + layerLen);
-
-      let layerName = '';
-      let extent = 4096;
-      const keys: string[] = [];
-      const values: Array<string | number | boolean | null> = [];
-      const featureSlices: Array<[number, number]> = [];
-
-      while (pos < layerEnd) {
-        const lTag = readVarint();
-        const lField = lTag >>> 3;
-        const lWire = lTag & 7;
-
-        if (lField === 1 && lWire === 2) {
-          const sLen = readVarint();
-          layerName = textDecoder.decode(buf.subarray(pos, pos + sLen));
-          pos += sLen;
-        } else if (lField === 2 && lWire === 2) {
-          const fLen = readVarint();
-          featureSlices.push([pos, pos + fLen]);
-          pos += fLen;
-        } else if (lField === 3 && lWire === 2) {
-          const kLen = readVarint();
-          keys.push(textDecoder.decode(buf.subarray(pos, pos + kLen)));
-          pos += kLen;
-        } else if (lField === 4 && lWire === 2) {
-          const vLen = readVarint();
-          const vEnd = pos + vLen;
-          let parsedVal: string | number | boolean | null = null;
-          while (pos < vEnd) {
-            const vTag = readVarint();
-            const vField = vTag >>> 3;
-            const vWire = vTag & 7;
-            if (vField === 1 && vWire === 2) {
-              const strLen = readVarint();
-              parsedVal = textDecoder.decode(buf.subarray(pos, pos + strLen));
-              pos += strLen;
-            } else if (vField === 2 && vWire === 5) {
-              parsedVal = view.getFloat32(pos, true);
-              pos += 4;
-            } else if (vField === 3 && vWire === 1) {
-              parsedVal = view.getFloat64(pos, true);
-              pos += 8;
-            } else if ((vField === 4 || vField === 5) && vWire === 0) {
-              parsedVal = readVarint();
-            } else if (vField === 6 && vWire === 0) {
-              parsedVal = zigzagDecode(readVarint());
-            } else if (vField === 7 && vWire === 0) {
-              parsedVal = readVarint() !== 0;
-            } else {
-              skipWire(vWire);
-            }
-          }
-          pos = vEnd;
-          values.push(parsedVal);
-        } else if (lField === 5 && lWire === 0) {
-          extent = readVarint();
-        } else {
-          skipWire(lWire);
-        }
-      }
-
-      pos = layerEnd;
-
-      if (layerName !== 'accidents') {
-        continue;
-      }
-
-      const classKeyIdx = keys.indexOf('class');
-      const yearKeyIdx = keys.indexOf('year');
-      const monthKeyIdx = keys.indexOf('month');
-
-      for (const [fStart, fEnd] of featureSlices) {
-        const savedPos = pos;
-        pos = fStart;
-        let geomType = 0;
-        let tagsStart = -1;
-        let tagsEnd = -1;
-        let geomStart = -1;
-        let geomEnd = -1;
-
-        while (pos < fEnd) {
-          const fTag = readVarint();
-          const fField = fTag >>> 3;
-          const fWire = fTag & 7;
-          if (fField === 2 && fWire === 2) {
-            const len = readVarint();
-            tagsStart = pos;
-            tagsEnd = pos + len;
-            pos += len;
-          } else if (fField === 3 && fWire === 0) {
-            geomType = readVarint();
-          } else if (fField === 4 && fWire === 2) {
-            const len = readVarint();
-            geomStart = pos;
-            geomEnd = pos + len;
-            pos += len;
-          } else {
-            skipWire(fWire);
-          }
-        }
-
-        // Only decode POINT features (geomType === 1)
-        if (geomType === 1 && geomStart >= 0) {
-          let speciesClass = 5;
-          let year = 2024;
-          let month = 1;
-
-          if (tagsStart >= 0) {
-            pos = tagsStart;
-            while (pos < tagsEnd) {
-              const kIdx = readVarint();
-              const vIdx = readVarint();
-              const v = values[vIdx];
-              if (kIdx === classKeyIdx && typeof v === 'number') {
-                speciesClass = v;
-              } else if (kIdx === yearKeyIdx && typeof v === 'number') {
-                year = v;
-              } else if (kIdx === monthKeyIdx && typeof v === 'number') {
-                month = v;
-              }
-            }
-          }
-
-          pos = geomStart;
-          let cx = 0;
-          let cy = 0;
-          while (pos < geomEnd) {
-            const cmdInt = readVarint();
-            const cmdId = cmdInt & 0x7;
-            const cmdCount = cmdInt >>> 3;
-            if (cmdId === 1 || cmdId === 2) {
-              for (let c = 0; c < cmdCount && pos < geomEnd; c++) {
-                cx += zigzagDecode(readVarint());
-                cy += zigzagDecode(readVarint());
-                // Ignore buffered margin points outside [0, extent] to prevent duplicate tile-gutter points
-                if (cx >= 0 && cx < extent && cy >= 0 && cy < extent) {
-                  const pt = tileSubpixelToLngLat(z, tileX, tileY, cx, cy, extent);
-                  results.push({
-                    lat: pt.lat,
-                    lng: pt.lng,
-                    speciesClass,
-                    year,
-                    month,
-                  });
-                }
-              }
-            } else {
-              break;
-            }
-          }
-        }
-
-        pos = savedPos;
-      }
-    } else {
-      skipWire(wireType);
-    }
-  }
-
-  return results;
-}
-
-function chooseRambollTileZoom(radiusKm: number): number {
-  if (radiusKm <= 7) return 11;
-  if (radiusKm <= 18) return 10;
-  if (radiusKm <= 38) return 9;
-  return 8;
-}
-
-async function fetchRambollTileBytes(
-  z: number,
-  x: number,
-  y: number
-): Promise<Uint8Array | null> {
-  const key = `${z}/${x}/${y}`;
-  const cached = getCachedTile(key);
-  if (cached !== undefined) {
-    return cached;
-  }
-
-  const url = `${RAMBOLL_TILE_BASE_URL}/${z}/${x}/${y}.pbf`;
-  try {
-    const res = await fetch(url, {
-      headers: {
-        Accept: 'application/x-protobuf,*/*',
-        'User-Agent': 'SuomiKartta-Planner/1.0',
-      },
-      signal: AbortSignal.timeout(8500),
-    });
-    if (!res.ok) {
-      setCachedTile(key, null);
-      return null;
-    }
-    const ab = await res.arrayBuffer();
-    const bytes = new Uint8Array(ab);
-    setCachedTile(key, bytes);
-    return bytes;
-  } catch {
+export function classifyStateRoad(
+  tie: number,
+  _fallbackName?: string
+): {
+  label: string;
+  roadTier: RoadHierarchyTier;
+  weight: number;
+} | null {
+  if (!Number.isFinite(tie) || tie < 1 || tie > 19999) {
     return null;
   }
-}
-
-export async function fetchRambollAccidentsInCircle(
-  centerLat: number,
-  centerLng: number,
-  radiusKm: number
-): Promise<DecodedRambollAccident[]> {
-  const dLat = (radiusKm * 1.05) / 111.132;
-  const cosLat = Math.max(0.2, Math.cos((centerLat * Math.PI) / 180));
-  const dLng = (radiusKm * 1.05) / (111.32 * cosLat);
-
-  const minLat = centerLat - dLat;
-  const maxLat = centerLat + dLat;
-  const minLng = centerLng - dLng;
-  const maxLng = centerLng + dLng;
-
-  const z = chooseRambollTileZoom(radiusKm);
-  const nw = lonLatToTileXY(minLng, maxLat, z);
-  const se = lonLatToTileXY(maxLng, minLat, z);
-
-  const tileCoords: Array<{ x: number; y: number }> = [];
-  for (let ty = nw.y; ty <= se.y; ty++) {
-    for (let tx = nw.x; tx <= se.x; tx++) {
-      tileCoords.push({ x: tx, y: ty });
-    }
+  if (tie >= 1 && tie <= 39) {
+    return { label: `Vt ${tie}`, roadTier: 1, weight: 1.55 };
   }
-
-  const tilePayloads = await Promise.all(
-    tileCoords.map(async ({ x, y }) => {
-      const bytes = await fetchRambollTileBytes(z, x, y);
-      if (!bytes) return [];
-      return decodeRambollMvtAccidentsTile(bytes, z, x, y);
-    })
-  );
-
-  const radiusM = radiusKm * 1000;
-  const inCircle: DecodedRambollAccident[] = [];
-  for (const batch of tilePayloads) {
-    for (const acc of batch) {
-      if (groundDistanceM(centerLat, centerLng, acc.lat, acc.lng) <= radiusM) {
-        inCircle.push(acc);
-      }
-    }
+  if (tie >= 40 && tie <= 99) {
+    return { label: `Kt ${tie}`, roadTier: 1, weight: 1.42 };
   }
-  return inCircle;
-}
-
-interface RawRoadLink {
-  roadLabel: string;
-  hierarchyWeight: number;
-  coords: Array<[number, number]>; // [lng, lat][]
-}
-
-function formatStateRoadLabel(tie: number, fallbackName?: string): {
-  label: string;
-  weight: number;
-} {
-  if (tie >= 1 && tie <= 39) return { label: `Vt ${tie}`, weight: 1.55 };
-  if (tie >= 40 && tie <= 99) return { label: `Kt ${tie}`, weight: 1.45 };
-  if (tie >= 100 && tie <= 999) return { label: `St ${tie}`, weight: 1.28 };
-  if (tie >= 1000 && tie <= 19999) return { label: `Yt ${tie}`, weight: 1.12 };
-  return {
-    label: fallbackName && fallbackName.trim() ? fallbackName.trim() : 'Regional road',
-    weight: 1.0,
-  };
+  if (tie >= 100 && tie <= 999) {
+    return { label: `St ${tie}`, roadTier: 1, weight: 1.3 };
+  }
+  if (tie >= 1000 && tie <= 9999) {
+    return { label: `Yt ${tie}`, roadTier: 1, weight: 1.18 };
+  }
+  return { label: `Yt ${tie}`, roadTier: 1, weight: 1.0 };
 }
 
 interface GeoJsonFeatureCollection {
@@ -492,48 +327,113 @@ interface GeoJsonFeatureCollection {
   }>;
 }
 
-async function fetchVaylaRoadsInCircle(
-  centerLat: number,
-  centerLng: number,
-  radiusKm: number
-): Promise<RawRoadLink[]> {
-  const dLat = (radiusKm * 1.02) / 111.132;
-  const cosLat = Math.max(0.2, Math.cos((centerLat * Math.PI) / 180));
-  const dLng = (radiusKm * 1.02) / (111.32 * cosLat);
+/**
+ * Densifies long straight segments (step <= 20 m) before polygon clipping so that even a narrow
+ * user-drawn box across a highway between two distant vertices captures the road cleanly.
+ */
+function clipPolylineInsidePolygon(
+  line: Array<[number, number]>,
+  polygon: ReadonlyArray<SimpleLatLng>,
+  bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }
+): Array<Array<[number, number]>> {
+  if (line.length < 2) return [];
 
-  const bboxStr = [
-    (centerLng - dLng).toFixed(5),
-    (centerLat - dLat).toFixed(5),
-    (centerLng + dLng).toFixed(5),
-    (centerLat + dLat).toFixed(5),
-  ].join(',');
+  const densified: Array<[number, number]> = [line[0]];
+  for (let i = 0; i < line.length - 1; i++) {
+    const a = line[i];
+    const b = line[i + 1];
+    const segLenM = groundDistanceM(a[1], a[0], b[1], b[0]);
+    if (segLenM > 20) {
+      const steps = Math.min(200, Math.ceil(segLenM / 20));
+      for (let s = 1; s < steps; s++) {
+        const t = s / steps;
+        densified.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+      }
+    }
+    densified.push(b);
+  }
 
-  // Fetch state road network (tieosoiteverkko) across all radii (2–50 km),
-  // plus detailed Digiroad links (dr_tielinkki_toim_lk) when radius <= 22 km for named municipal collectors.
-  // NOTE: Never put OR or parentheses in `filter=` on avoinapi.vaylapilvi.fi due to FortiGuard WAF rules.
-  const stateRoadsUrl = `${VAYLA_OGC_BASE_URL}/tiestotiedot:tieosoiteverkko/items?f=json&limit=4000&bbox=${bboxStr}`;
-  const digiroadUrl =
-    radiusKm <= 22
-      ? `${VAYLA_OGC_BASE_URL}/digiroad:dr_tielinkki_toim_lk/items?f=json&limit=4000&bbox=${bboxStr}`
-      : null;
+  const sublines: Array<Array<[number, number]>> = [];
+  let current: Array<[number, number]> = [];
 
-  const [stateRes, digiRes] = await Promise.all([
-    fetch(stateRoadsUrl, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(10_000),
-    }).catch(() => null),
-    digiroadUrl
-      ? fetch(digiroadUrl, {
+  for (const pt of densified) {
+    const [lng, lat] = pt;
+    const inside =
+      lat >= bbox.minLat &&
+      lat <= bbox.maxLat &&
+      lng >= bbox.minLng &&
+      lng <= bbox.maxLng &&
+      isPointInLatLngPolygon(lat, lng, polygon);
+
+    if (inside) {
+      current.push(pt);
+    } else {
+      if (current.length >= 2) sublines.push(current);
+      current = [];
+    }
+  }
+  if (current.length >= 2) sublines.push(current);
+  return sublines;
+}
+
+async function fetchUnclippedRoadsInBbox(
+  minLat: number,
+  maxLat: number,
+  minLng: number,
+  maxLng: number,
+  maxSpanKm: number
+): Promise<CachedRoadBboxData> {
+  // Quantize bbox slightly (~300m) so small redraws or repeat camera-count updates hit cache immediately
+  const qMinLng = (Math.floor(minLng * 250) / 250).toFixed(4);
+  const qMinLat = (Math.floor(minLat * 250) / 250).toFixed(4);
+  const qMaxLng = (Math.ceil(maxLng * 250) / 250).toFixed(4);
+  const qMaxLat = (Math.ceil(maxLat * 250) / 250).toFixed(4);
+  const includeDigiroad = maxSpanKm <= 38;
+  const includeUrbanSignals = maxSpanKm <= 90;
+  const cacheKey = `v5:${qMinLng},${qMinLat},${qMaxLng},${qMaxLat}:dr=${includeDigiroad ? 1 : 0}`;
+
+  const cached = getCachedRoads(cacheKey);
+  if (cached) return cached;
+
+  const bboxStr = `${qMinLng},${qMinLat},${qMaxLng},${qMaxLat}`;
+  // Pad urban-centre query bbox by ~750 m so roads near the polygon boundary still detect adjacent city centres
+  const uMinLng = (Number(qMinLng) - 0.014).toFixed(4);
+  const uMinLat = (Number(qMinLat) - 0.007).toFixed(4);
+  const uMaxLng = (Number(qMaxLng) + 0.014).toFixed(4);
+  const uMaxLat = (Number(qMaxLat) + 0.007).toFixed(4);
+  const urbanBboxStr = `${uMinLng},${uMinLat},${uMaxLng},${uMaxLat}`;
+  const digiroadFilter = encodeURIComponent('hallinn_lk IN (1,2) AND linkkityyp<=5');
+
+  const stateRoadsUrl = `${VAYLA_OGC_BASE_URL}/tiestotiedot:tieosoiteverkko/items?f=json&limit=10000&bbox=${bboxStr}`;
+  const digiroadUrl = includeDigiroad
+    ? `${VAYLA_OGC_BASE_URL}/digiroad:dr_tielinkki_toim_lk/items?f=json&limit=10000&filter=${digiroadFilter}&bbox=${urbanBboxStr}`
+    : null;
+  const crosswalksUrl = includeUrbanSignals
+    ? `${VAYLA_OGC_BASE_URL}/digiroad:dr_suojatie/items?f=json&limit=10000&bbox=${urbanBboxStr}`
+    : null;
+  const trafficLightsUrl = includeUrbanSignals
+    ? `${VAYLA_OGC_BASE_URL}/digiroad:dr_liikennevalo/items?f=json&limit=3000&bbox=${urbanBboxStr}`
+    : null;
+
+  const fetchJson = (url: string | null) =>
+    url
+      ? fetch(url, {
           headers: { Accept: 'application/json' },
           signal: AbortSignal.timeout(10_000),
         }).catch(() => null)
-      : Promise.resolve(null),
+      : Promise.resolve(null);
+
+  const [stateRes, digiRes, crosswalkRes, trafficLightRes] = await Promise.all([
+    fetchJson(stateRoadsUrl),
+    fetchJson(digiroadUrl),
+    fetchJson(crosswalksUrl),
+    fetchJson(trafficLightsUrl),
   ]);
 
-  const rawLinks: RawRoadLink[] = [];
-  const maxAllowedRadiusM = Math.max(400, radiusKm * 1000 - 35);
-
-  const extractLines = (geomType: string | undefined, rawCoords: unknown): Array<Array<[number, number]>> => {
+  const extractLines = (
+    geomType: string | undefined,
+    rawCoords: unknown
+  ): Array<Array<[number, number]>> => {
     if (!Array.isArray(rawCoords)) return [];
     if (geomType === 'LineString') {
       return [
@@ -554,100 +454,166 @@ async function fetchVaylaRoadsInCircle(
     return [];
   };
 
-  const clipLineInsideRadius = (line: Array<[number, number]>): Array<Array<[number, number]>> => {
-    const sublines: Array<Array<[number, number]>> = [];
-    let current: Array<[number, number]> = [];
-    for (const pt of line) {
-      const inside = groundDistanceM(centerLat, centerLng, pt[1], pt[0]) <= maxAllowedRadiusM;
-      if (inside) {
-        current.push(pt);
-      } else {
-        if (current.length >= 2) sublines.push(current);
-        current = [];
-      }
-    }
-    if (current.length >= 2) sublines.push(current);
-    return sublines;
-  };
+  const rawLinks: RawRoadLink[] = [];
+  let loadedStateRoads = false;
 
-  let loadedDigiroadStateRoads = false;
-
-  if (digiRes && digiRes.ok) {
-    try {
-      const gj = (await digiRes.json()) as GeoJsonFeatureCollection;
-      const feats = gj.features ?? [];
-      // If Digiroad did not hit the 4000-item ceiling, it contains the full non-bridge road set for the bbox
-      if (feats.length > 0 && feats.length < 3950) {
-        loadedDigiroadStateRoads = true;
-      }
-      for (const f of feats) {
-        const p = f.properties ?? {};
-        const siltaAlik = Number(p.silta_alik ?? 0);
-        const linkkiTyyp = Number(p.linkkityyp ?? 3);
-        const hallinnLk = Number(p.hallinn_lk ?? 2);
-        const toiminnLk = Number(p.toiminn_lk ?? 5);
-
-        // Strictly non-bridge motor vehicle roads
-        if (siltaAlik !== 0) continue;
-        if (linkkiTyyp < 1 || linkkiTyyp > 4) continue;
-        if (hallinnLk !== 1 && toiminnLk > 4) continue;
-        // If Digiroad hit the 4000 limit, let tieosoiteverkko supply state roads (hallinn_lk === 1)
-        if (!loadedDigiroadStateRoads && hallinnLk === 1) continue;
-
-        const tieNum = Number(p.tienumero ?? 0);
-        const streetName = typeof p.tienimi_su === 'string' ? p.tienimi_su.trim() : '';
-        let roadLabel = streetName || 'Local collector';
-        let hierarchyWeight = toiminnLk <= 3 ? 1.25 : 0.95;
-
-        if (tieNum > 0) {
-          const formatted = formatStateRoadLabel(tieNum, streetName);
-          roadLabel = streetName ? `${formatted.label} (${streetName})` : formatted.label;
-          hierarchyWeight = formatted.weight;
-        }
-
-        const lines = extractLines(f.geometry?.type, f.geometry?.coordinates);
-        for (const ln of lines) {
-          for (const clipped of clipLineInsideRadius(ln)) {
-            rawLinks.push({ roadLabel, hierarchyWeight, coords: clipped });
-          }
-        }
-      }
-    } catch {
-      loadedDigiroadStateRoads = false;
-    }
-  }
-
-  if (!loadedDigiroadStateRoads && stateRes && stateRes.ok) {
+  // 1. Authoritative Finnish state highway network (Vt, Kt, St, Yt: tie 1..19999, single-centerline ajorata <= 1)
+  if (stateRes && stateRes.ok) {
     try {
       const gj = (await stateRes.json()) as GeoJsonFeatureCollection;
       for (const f of gj.features ?? []) {
         const p = f.properties ?? {};
         const ajorata = Number(p.ajorata ?? 0);
-        // Main carriageway only (exclude slip ramps >= 3 and duplicate parallel carriageway 2)
         if (ajorata > 1) continue;
         const tie = Number(p.tie ?? 0);
         const nimi = typeof p.nimi === 'string' ? p.nimi.trim() : '';
-        const { label, weight } = formatStateRoadLabel(tie, nimi);
+        const classified = classifyStateRoad(tie, nimi);
+        if (!classified) continue;
 
-        const lines = extractLines(f.geometry?.type, f.geometry?.coordinates);
-        for (const ln of lines) {
-          for (const clipped of clipLineInsideRadius(ln)) {
-            rawLinks.push({ roadLabel: label, hierarchyWeight: weight, coords: clipped });
+        for (const ln of extractLines(f.geometry?.type, f.geometry?.coordinates)) {
+          if (ln.length >= 2) {
+            rawLinks.push({
+              roadLabel: classified.label,
+              roadTier: classified.roadTier,
+              hierarchyWeight: classified.weight,
+              coords: ln,
+            });
+            loadedStateRoads = true;
           }
         }
       }
     } catch {
-      // Ignore parse failure if digiroad already succeeded
+      loadedStateRoads = false;
     }
   }
 
-  return rawLinks;
+  // 2. Municipal arterials, collectors, and local streets from Digiroad (plus municipal street-grid samples for city-centre exclusion)
+  const municipalStreets: UrbanStreetSample[] = [];
+  if (digiRes && digiRes.ok) {
+    try {
+      const gj = (await digiRes.json()) as GeoJsonFeatureCollection;
+      const feats = gj.features ?? [];
+      for (const f of feats) {
+        const p = f.properties ?? {};
+        const linkkiTyyp = Number(p.linkkityyp ?? 3);
+        const hallinnLk = Number(p.hallinn_lk ?? 2);
+        const toiminnLk = Number(p.toiminn_lk ?? 5);
+
+        // Record municipal motor street segments (hallinn_lk === 2, linkkityyp 1..5) for city-centre density detection
+        if (hallinnLk === 2 && linkkiTyyp >= 1 && linkkiTyyp <= 5) {
+          const hasAddress = p.ens_talo_v != null || p.ens_talo_o != null;
+          for (const ln of extractLines(f.geometry?.type, f.geometry?.coordinates)) {
+            if (ln.length >= 2) {
+              const mid = ln[Math.floor(ln.length / 2)];
+              let lengthM = 0;
+              for (let k = 0; k < ln.length - 1; k++) {
+                lengthM += groundDistanceM(ln[k][1], ln[k][0], ln[k + 1][1], ln[k + 1][0]);
+              }
+              municipalStreets.push({
+                lat: mid[1],
+                lng: mid[0],
+                lengthM,
+                hasAddress,
+              });
+            }
+          }
+        }
+
+        // Restrict candidate roads strictly to motor carriageways (1..4); excludes roundabouts (5), slip ramps (6), and cycle/footpaths (8,9,12)
+        if (linkkiTyyp < 1 || linkkiTyyp > 4) continue;
+        if (hallinnLk !== 1 && toiminnLk > 5) continue;
+        if (loadedStateRoads && hallinnLk === 1) continue;
+
+        const tieNum = Number(p.tienumero ?? 0);
+        const mtkTieLk = Number(p.mtk_tie_lk ?? 0);
+        const streetName = typeof p.tienimi_su === 'string' ? p.tienimi_su.trim() : '';
+        if (/kevyen liikenteen|\bramp(pi|it)\b/i.test(streetName)) continue;
+
+        const isOrangeMunicipalArterial =
+          toiminnLk <= 3 || (toiminnLk === 4 && mtkTieLk > 0 && mtkTieLk <= 12122);
+
+        let roadLabel = streetName || (isOrangeMunicipalArterial ? 'Main arterial' : 'Local street');
+        let roadTier: RoadHierarchyTier = isOrangeMunicipalArterial ? 1 : 2;
+        let hierarchyWeight =
+          toiminnLk <= 2
+            ? 1.3
+            : toiminnLk === 3
+              ? 1.15
+              : isOrangeMunicipalArterial
+                ? 1.0
+                : 0.5;
+
+        if (hallinnLk === 1 || tieNum > 0) {
+          const classified = classifyStateRoad(tieNum, streetName);
+          if (!classified) continue;
+          roadLabel = classified.label;
+          roadTier = classified.roadTier;
+          hierarchyWeight = classified.weight;
+        }
+
+        for (const ln of extractLines(f.geometry?.type, f.geometry?.coordinates)) {
+          if (ln.length >= 2) {
+            rawLinks.push({ roadLabel, roadTier, hierarchyWeight, coords: ln });
+          }
+        }
+      }
+    } catch {
+      // Keep state roads already loaded
+    }
+  }
+
+  // 3. Extract pedestrian crosswalks & traffic signals for city-centre exclusion
+  const extractPoints = async (res: Response | null): Promise<Array<[number, number]>> => {
+    if (!res || !res.ok) return [];
+    try {
+      const gj = (await res.json()) as GeoJsonFeatureCollection;
+      const pts: Array<[number, number]> = [];
+      for (const f of gj.features ?? []) {
+        const c = f.geometry?.coordinates;
+        if (f.geometry?.type === 'Point' && Array.isArray(c) && c.length >= 2) {
+          const lng = Number(c[0]);
+          const lat = Number(c[1]);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            pts.push([lng, lat]);
+          }
+        }
+      }
+      return pts;
+    } catch {
+      return [];
+    }
+  };
+
+  const [crosswalks, trafficLights] = await Promise.all([
+    extractPoints(crosswalkRes),
+    extractPoints(trafficLightRes),
+  ]);
+
+  const urbanCentreIndex = buildUrbanCentreIndex({
+    crosswalks,
+    trafficLights,
+    municipalStreets,
+  });
+
+  // Offline fallback: if Väylävirasto is unreachable, use downloaded local Ramboll wildlife warning road segments
+  if (rawLinks.length === 0) {
+    const localCorridors = queryLocalWarningCorridorsInBbox(minLat, maxLat, minLng, maxLng);
+    for (const wc of localCorridors) {
+      rawLinks.push({
+        roadLabel: 'Wildlife corridor road',
+        roadTier: 1,
+        hierarchyWeight: 1.4,
+        coords: wc.coords,
+      });
+    }
+    return { links: rawLinks, urbanCentreIndex };
+  }
+
+  const payload: CachedRoadBboxData = { links: rawLinks, urbanCentreIndex };
+  setCachedRoads(cacheKey, payload);
+  return payload;
 }
 
-/**
- * Stitches connected road links with matching endpoints (~8 m snap grid) into longer continuous chains
- * so camera sightlines point cleanly down uninterrupted highway corridors.
- */
 function stitchRoadChains(links: RawRoadLink[]): RoadSegmentChain[] {
   const endpointKey = (pt: [number, number]): string =>
     `${Math.round(pt[0] * 10000)}:${Math.round(pt[1] * 10000)}`;
@@ -681,7 +647,6 @@ function stitchRoadChains(links: RawRoadLink[]): RoadSegmentChain[] {
     const seed = links[i];
     let pts: Array<[number, number]> = [...seed.coords];
 
-    // Extend forward
     let extended = true;
     let guard = 0;
     while (extended && guard++ < 150) {
@@ -709,7 +674,6 @@ function stitchRoadChains(links: RawRoadLink[]): RoadSegmentChain[] {
       }
     }
 
-    // Extend backward
     extended = true;
     guard = 0;
     while (extended && guard++ < 150) {
@@ -743,9 +707,10 @@ function stitchRoadChains(links: RawRoadLink[]): RoadSegmentChain[] {
       cumDistM.push(cumDistM[k - 1] + segLen);
     }
     const totalLengthM = cumDistM[cumDistM.length - 1];
-    if (totalLengthM >= 65) {
+    if (totalLengthM >= 45) {
       chains.push({
         roadLabel: seed.roadLabel,
+        roadTier: seed.roadTier,
         hierarchyWeight: seed.hierarchyWeight,
         coords: pts,
         cumDistM,
@@ -808,61 +773,403 @@ function distancePointToChainM(
   return Math.sqrt(minDistSq);
 }
 
-function assignAngularSector(
-  centerLat: number,
-  centerLng: number,
-  lat: number,
-  lng: number
-): SectorId {
-  const bearing = compassBearingDeg(centerLat, centerLng, lat, lng);
-  const idx = (Math.floor(bearing / 72) % 5) + 1;
-  return idx as SectorId;
+/**
+ * Simplifies a road coordinate chain ([lng, lat][]) via iterative Ramer–Douglas–Peucker (RDP)
+ * within `toleranceM` meters so every road bend and corner near cameras is preserved accurately.
+ */
+export function simplifyRoadCoordsMeters(
+  coords: ReadonlyArray<[number, number]>,
+  toleranceM = 1.8
+): Array<[number, number]> {
+  if (coords.length <= 2) {
+    return coords.map(([lng, lat]) => [Number(lng.toFixed(6)), Number(lat.toFixed(6))]);
+  }
+
+  const meanLat = (coords[0][1] + coords[coords.length - 1][1]) / 2;
+  const mPerDegLat = (Math.PI / 180) * EARTH_RADIUS_M;
+  const mPerDegLng = mPerDegLat * Math.cos((meanLat * Math.PI) / 180);
+
+  const keep = new Uint8Array(coords.length);
+  keep[0] = 1;
+  keep[coords.length - 1] = 1;
+
+  const stack: Array<[number, number]> = [[0, coords.length - 1]];
+  while (stack.length > 0) {
+    const [startIdx, endIdx] = stack.pop()!;
+    if (endIdx - startIdx <= 1) continue;
+
+    const ax = coords[startIdx][0] * mPerDegLng;
+    const ay = coords[startIdx][1] * mPerDegLat;
+    const bx = coords[endIdx][0] * mPerDegLng;
+    const by = coords[endIdx][1] * mPerDegLat;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+
+    let maxDist = -1;
+    let splitIdx = -1;
+
+    for (let i = startIdx + 1; i < endIdx; i++) {
+      const px = coords[i][0] * mPerDegLng;
+      const py = coords[i][1] * mPerDegLat;
+      let d: number;
+      if (lenSq > 1e-9) {
+        const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+        d = Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+      } else {
+        d = Math.hypot(px - ax, py - ay);
+      }
+      if (d > maxDist) {
+        maxDist = d;
+        splitIdx = i;
+      }
+    }
+
+    if (splitIdx !== -1 && maxDist > toleranceM) {
+      keep[splitIdx] = 1;
+      stack.push([startIdx, splitIdx]);
+      stack.push([splitIdx, endIdx]);
+    } else if (endIdx - startIdx >= 2 && Math.sqrt(lenSq) > 320) {
+      const midIdx = Math.floor((startIdx + endIdx) / 2);
+      keep[midIdx] = 1;
+      stack.push([startIdx, midIdx]);
+      stack.push([midIdx, endIdx]);
+    }
+  }
+
+  const result: Array<[number, number]> = [];
+  for (let i = 0; i < coords.length; i++) {
+    if (keep[i]) {
+      result.push([Number(coords[i][0].toFixed(6)), Number(coords[i][1].toFixed(6))]);
+    }
+  }
+  return result;
+}
+
+function extractSimulationRoadPolylines(
+  chains: ReadonlyArray<RoadSegmentChain>,
+  cameraChainIndices: ReadonlySet<number>,
+  maxTotalVertices = 20_000
+): Array<Array<[number, number]>> {
+  const indexed = chains.map((chain, idx) => ({
+    chain,
+    hasCamera: cameraChainIndices.has(idx),
+  }));
+  indexed.sort((a, b) => {
+    if (a.hasCamera !== b.hasCamera) return a.hasCamera ? -1 : 1;
+    return (
+      b.chain.hierarchyWeight - a.chain.hierarchyWeight ||
+      b.chain.totalLengthM - a.chain.totalLengthM
+    );
+  });
+
+  const polylines: Array<Array<[number, number]>> = [];
+  let vertexBudgetUsed = 0;
+
+  for (const { chain, hasCamera } of indexed) {
+    const simplified = simplifyRoadCoordsMeters(chain.coords, 1.8);
+    if (simplified.length < 2) continue;
+    if (
+      !hasCamera &&
+      vertexBudgetUsed + simplified.length > maxTotalVertices &&
+      polylines.length >= 40
+    ) {
+      continue;
+    }
+    polylines.push(simplified);
+    vertexBudgetUsed += simplified.length;
+  }
+
+  return polylines;
 }
 
 /**
- * Computes a complete 100-camera road-aligned deployment plan inside any Finnish location & radius,
- * weighted by live 2021–2025 cervid collision data from Ramboll Mobility Analytics and snapped
- * onto Väylävirasto's national road network.
+ * Places a camera on the roadside shoulder (~2.5 m perpendicular to the road centerline)
+ * and aims its dual lenses directly along the road in both directions (`aheadTarget` and `behindTarget`).
  */
-export async function buildCustomAreaCameraPlan(
-  params: CustomAreaRequestParams
-): Promise<CustomAreaPlanResult> {
-  const lat = Number(params.lat);
-  const lng = Number(params.lng);
-  const radiusKm = Math.max(2, Math.min(50, Number(params.radiusKm) || 15));
+function computeRoadsideMount(
+  centerlineOrigin: { lat: number; lng: number },
+  roadTangentBearing: number,
+  aheadTarget: { lat: number; lng: number } | null,
+  behindTarget: { lat: number; lng: number } | null,
+  polygon: ReadonlyArray<SimpleLatLng>
+): { lat: number; lng: number; bearingDeg: number; reverseBearingDeg: number } {
+  let mountLat = centerlineOrigin.lat;
+  let mountLng = centerlineOrigin.lng;
 
-  if (
-    !Number.isFinite(lat) ||
-    !Number.isFinite(lng) ||
-    lat < 59.4 ||
-    lat > 70.2 ||
-    lng < 19.0 ||
-    lng > 31.7
-  ) {
-    throw new Error('Selected coordinates must lie within Finland (59.5°N–70.1°N, 19.1°E–31.6°E).');
+  const rightShoulder = projectPointMeters(
+    centerlineOrigin.lat,
+    centerlineOrigin.lng,
+    ROADSIDE_SHOULDER_OFFSET_M,
+    (roadTangentBearing + 90) % 360
+  );
+  if (isPointInLatLngPolygon(rightShoulder.lat, rightShoulder.lng, polygon)) {
+    mountLat = rightShoulder.lat;
+    mountLng = rightShoulder.lng;
+  } else {
+    const leftShoulder = projectPointMeters(
+      centerlineOrigin.lat,
+      centerlineOrigin.lng,
+      ROADSIDE_SHOULDER_OFFSET_M,
+      (roadTangentBearing + 270) % 360
+    );
+    if (isPointInLatLngPolygon(leftShoulder.lat, leftShoulder.lng, polygon)) {
+      mountLat = leftShoulder.lat;
+      mountLng = leftShoulder.lng;
+    }
+  }
+
+  let bearingDeg: number;
+  let reverseBearingDeg: number;
+
+  if (aheadTarget && behindTarget) {
+    bearingDeg = compassBearingDeg(mountLat, mountLng, aheadTarget.lat, aheadTarget.lng);
+    reverseBearingDeg = compassBearingDeg(mountLat, mountLng, behindTarget.lat, behindTarget.lng);
+  } else if (aheadTarget) {
+    bearingDeg = compassBearingDeg(mountLat, mountLng, aheadTarget.lat, aheadTarget.lng);
+    reverseBearingDeg = (bearingDeg + 180) % 360;
+  } else if (behindTarget) {
+    bearingDeg = compassBearingDeg(mountLat, mountLng, behindTarget.lat, behindTarget.lng);
+    reverseBearingDeg = (bearingDeg + 180) % 360;
+  } else {
+    bearingDeg = ((Math.round(roadTangentBearing) % 360) + 360) % 360;
+    reverseBearingDeg = (bearingDeg + 180) % 360;
+  }
+
+  return {
+    lat: Number(mountLat.toFixed(6)),
+    lng: Number(mountLng.toFixed(6)),
+    bearingDeg,
+    reverseBearingDeg,
+  };
+}
+
+/**
+ * Selects roadside camera stations using a strict road-size hierarchy waterfall (Tier 1 largest -> Tier 5 smallest):
+ * - Cameras are placed exclusively on the largest road tier present until either `targetCameraCount` is reached
+ *   OR every road in that tier is properly covered end-to-end (no candidate station >= `1.25 * sightRangeM`
+ *   away from a placed camera, guaranteeing ~`2 * sightRangeM` tip-to-tip bidirectional coverage without redundant cone stacking).
+ * - Only once all larger roads are properly covered do remaining cameras spill onto smaller road tiers.
+ * - Within each tier, stations spread evenly along that tier's corridors weighted by wildlife activity and `hierarchyWeight`.
+ */
+export function selectRoadStationsByHierarchy<T extends HierarchicalStationCandidate>(
+  rawCandidates: readonly T[],
+  chainLengthByIdx: ReadonlyMap<number, number>,
+  targetCameraCount: number,
+  sightRangeM: number
+): T[] {
+  if (rawCandidates.length === 0 || targetCameraCount <= 0) {
+    return [];
+  }
+
+  const candidates = [...rawCandidates].sort(
+    (a, b) => a.roadTier - b.roadTier || b.score - a.score || b.accidents500m - a.accidents500m
+  );
+
+  const properCoverageMinSpacingM = Math.max(20, sightRangeM * 1.25);
+  const selected: T[] = [];
+  const pickedMask = new Uint8Array(candidates.length);
+  const minGroundDistM = new Float64Array(candidates.length).fill(Infinity);
+  const minSameChainDistM = new Float64Array(candidates.length).fill(Infinity);
+
+  const selectCandidateAt = (pickIdx: number) => {
+    pickedMask[pickIdx] = 1;
+    const chosen = candidates[pickIdx];
+    selected.push(chosen);
+    for (let j = 0; j < candidates.length; j++) {
+      if (pickedMask[j]) continue;
+      const other = candidates[j];
+      const gd = groundDistanceM(chosen.lat, chosen.lng, other.lat, other.lng);
+      if (gd < minGroundDistM[j]) {
+        minGroundDistM[j] = gd;
+      }
+      if (chosen.chainIdx === other.chainIdx) {
+        const cd = Math.abs(chosen.stationDistM - other.stationDistM);
+        if (cd < minSameChainDistM[j]) {
+          minSameChainDistM[j] = cd;
+        }
+      }
+    }
+  };
+
+  const tiers: RoadHierarchyTier[] = [1, 2];
+
+  for (const tier of tiers) {
+    if (selected.length >= targetCameraCount) break;
+
+    const tierIndices: number[] = [];
+    const tierChains = new Set<number>();
+    for (let i = 0; i < candidates.length; i++) {
+      if (candidates[i].roadTier === tier) {
+        tierIndices.push(i);
+        tierChains.add(candidates[i].chainIdx);
+      }
+    }
+    if (tierIndices.length === 0) continue;
+
+    let tierRoadM = 0;
+    for (const cIdx of tierChains) {
+      tierRoadM += chainLengthByIdx.get(cIdx) ?? 200;
+    }
+
+    const remainingNeeded = targetCameraCount - selected.length;
+    const avgTierRoadPerCamM = tierRoadM / Math.max(1, remainingNeeded);
+    const tierIdealSpacingM = Math.max(sightRangeM * 2.05, avgTierRoadPerCamM * 0.75);
+
+    // Seed first camera overall at the highest-scoring station of the largest road tier in the area
+    if (selected.length === 0) {
+      selectCandidateAt(tierIndices[0]);
+    }
+
+    while (selected.length < targetCameraCount) {
+      let bestIdx = -1;
+      let bestUtility = -1;
+
+      for (let k = 0; k < tierIndices.length; k++) {
+        const idx = tierIndices[k];
+        if (pickedMask[idx]) continue;
+
+        const gd = minGroundDistM[idx];
+        const cd = minSameChainDistM[idx];
+        if (gd < properCoverageMinSpacingM || cd < properCoverageMinSpacingM) {
+          continue;
+        }
+
+        const effectiveSepM = Math.min(gd, cd * 0.92);
+        const normDist = effectiveSepM / tierIdealSpacingM;
+        const evennessFactor =
+          normDist < 1.0
+            ? Math.pow(normDist, 3.0)
+            : 1.0 + 0.55 * Math.min(1.6, normDist - 1.0);
+
+        const utility = candidates[idx].score * evennessFactor;
+        if (utility > bestUtility) {
+          bestUtility = utility;
+          bestIdx = idx;
+        }
+      }
+
+      if (bestIdx === -1) {
+        // Every road in this tier is now properly covered; advance to the next road tier
+        break;
+      }
+      selectCandidateAt(bestIdx);
+    }
+  }
+
+  // Dense-infill fallback ONLY if every road tier (1..5) in the polygon is already properly covered
+  // and the user requested even more cameras than fit at 1.75x sightRangeM spacing
+  for (const tier of tiers) {
+    while (selected.length < targetCameraCount) {
+      let fallbackIdx = -1;
+      let fallbackDist = -1;
+      for (let i = 0; i < candidates.length; i++) {
+        if (pickedMask[i] || candidates[i].roadTier !== tier) continue;
+        if (minGroundDistM[i] >= 18 && minGroundDistM[i] > fallbackDist) {
+          fallbackDist = minGroundDistM[i];
+          fallbackIdx = i;
+        }
+      }
+      if (fallbackIdx === -1) break;
+      selectCandidateAt(fallbackIdx);
+    }
+  }
+
+  return selected;
+}
+
+/**
+ * Deterministic roadside camera plotter inside any user-drawn polygon on the Finland map.
+ * Uses the locally downloaded 2021–2025 Ramboll wildlife collision dataset (67,081 nationwide points +
+ * 27,599 official warning road segments) without accessing external Ramboll endpoints at runtime.
+ */
+export async function buildPolygonAreaCameraPlan(
+  params: DrawnAreaPlotRequestParams
+): Promise<CustomAreaPlanResult> {
+  const rawPolygon = Array.isArray(params.polygon) ? params.polygon : [];
+  const polygon: SimpleLatLng[] = rawPolygon
+    .filter(
+      (pt) =>
+        pt &&
+        Number.isFinite(Number(pt.lat)) &&
+        Number.isFinite(Number(pt.lng)) &&
+        Number(pt.lat) >= 59.3 &&
+        Number(pt.lat) <= 70.3 &&
+        Number(pt.lng) >= 18.8 &&
+        Number(pt.lng) <= 31.8
+    )
+    .map((pt) => ({ lat: Number(pt.lat), lng: Number(pt.lng) }));
+
+  if (polygon.length < 3) {
+    throw new Error('Draw a valid closed area with at least 3 points inside Finland.');
+  }
+
+  const targetCameraCount = Math.max(
+    MIN_PLOTTED_CAMERAS,
+    Math.min(MAX_PLOTTED_CAMERAS, Math.round(Number(params.cameraCount) || 50))
+  );
+  const sightRangeM = Math.max(15, Math.min(120, Math.round(Number(params.rangeMeters) || 60)));
+  const fovDeg = Math.max(10, Math.min(360, Math.round(Number(params.fovDeg) || 30)));
+
+  const bbox = computePolygonBBox(polygon);
+  const areaKm2Raw = computePolygonAreaKm2(polygon);
+  if (areaKm2Raw < 0.01) {
+    throw new Error('The drawn area is too small. Draw a slightly larger area covering a road.');
+  }
+  if (areaKm2Raw > 35_000) {
+    throw new Error('The drawn area is too large (> 35,000 km²). Zoom in and outline a more focused region.');
   }
 
   const label =
     params.label && params.label.trim().length > 0
       ? params.label.trim()
-      : `Custom Area (${lat.toFixed(3)}°N, ${lng.toFixed(3)}°E)`;
+      : `Drawn Area (${bbox.centerLat.toFixed(2)}°N, ${bbox.centerLng.toFixed(2)}°E)`;
 
-  const [accidents, rawRoadLinks] = await Promise.all([
-    fetchRambollAccidentsInCircle(lat, lng, radiusKm),
-    fetchVaylaRoadsInCircle(lat, lng, radiusKm),
-  ]);
+  // 1. Query locally downloaded Ramboll dataset (instant < 2 ms, zero requests to ramboll.com).
+  //    Without the nationwide .bin, this area's tiles are fetched live first.
+  await ensureAccidentsForPolygon(polygon, 500);
+  const { insideAccidents, bufferedAccidents, nationwideTotal } =
+    queryLocalAccidentsForPolygon(polygon, 500);
+  const localWarnings = queryLocalWarningCorridorsInBbox(
+    bbox.minLat - 0.005,
+    bbox.maxLat + 0.005,
+    bbox.minLng - 0.008,
+    bbox.maxLng + 0.008
+  );
 
-  const chains = stitchRoadChains(rawRoadLinks);
+  // 2. Load & clip motor roads strictly inside the user's drawn polygon + build city-centre spatial index
+  const maxSpanKm = Math.max(bbox.spanLatKm, bbox.spanLngKm);
+  const { links: unclippedLinks, urbanCentreIndex } = await fetchUnclippedRoadsInBbox(
+    bbox.minLat,
+    bbox.maxLat,
+    bbox.minLng,
+    bbox.maxLng,
+    maxSpanKm
+  );
+
+  const clippedLinks: RawRoadLink[] = [];
+  for (const link of unclippedLinks) {
+    for (const sub of clipPolylineInsidePolygon(link.coords, polygon, bbox)) {
+      clippedLinks.push({
+        roadLabel: link.roadLabel,
+        roadTier: link.roadTier,
+        hierarchyWeight: link.hierarchyWeight,
+        coords: sub,
+      });
+    }
+  }
+
+  const chains = stitchRoadChains(clippedLinks);
   if (chains.length === 0) {
     throw new Error(
-      `No public motor roads were found within ${radiusKm} km of (${lat.toFixed(3)}°N, ${lng.toFixed(3)}°E). Choose a land location closer to a road or increase the radius.`
+      'No public motor roads were found inside the drawn area. Draw an area that crosses at least one public road or highway.'
     );
   }
 
   const totalRoadM = chains.reduce((acc, ch) => acc + ch.totalLengthM, 0);
   const roadNetworkKm = Number((totalRoadM / 1000).toFixed(1));
 
-  // Aggregate species & annual counts inside circle
+  // 3. Aggregate historical collision statistics strictly inside the drawn polygon
   const speciesTotals: SpeciesCollisionBreakdown = {
     whiteTailedDeer: 0,
     roeDeer: 0,
@@ -878,15 +1185,16 @@ export async function buildCustomAreaCameraPlan(
     '2025': 0,
   };
 
-  // Spatial index for fast 500 m accident lookup around candidate road stations
-  const ACC_CELL_DEG = 0.01;
-  const accidentBuckets = new Map<string, number[]>();
-  const hotspotCells = new Map<string, { sumLng: number; sumLat: number; count: number }>();
-  const hotspotGridLat = radiusKm <= 10 ? 0.006 : radiusKm <= 25 ? 0.01 : 0.016;
+  const hotspotGridLat = bbox.equivRadiusKm <= 10 ? 0.0055 : bbox.equivRadiusKm <= 25 ? 0.01 : 0.016;
   const hotspotGridLng = hotspotGridLat * 1.9;
+  const hotspotCells = new Map<string, { sumLng: number; sumLat: number; count: number }>();
 
-  for (let i = 0; i < accidents.length; i++) {
-    const a = accidents[i];
+  const ACC_CELL_DEG = 0.01;
+  const insideBuckets = new Map<string, number[]>();
+  const bufferedBuckets = new Map<string, number[]>();
+
+  for (let i = 0; i < insideAccidents.length; i++) {
+    const a = insideAccidents[i];
     if (a.speciesClass === 1) speciesTotals.moose++;
     else if (a.speciesClass === 2) speciesTotals.fallowDeer++;
     else if (a.speciesClass === 3) speciesTotals.roeDeer++;
@@ -898,10 +1206,10 @@ export async function buildCustomAreaCameraPlan(
 
     const gx = Math.floor(a.lng / ACC_CELL_DEG);
     const gy = Math.floor(a.lat / ACC_CELL_DEG);
-    const bKey = `${gx}:${gy}`;
-    const list = accidentBuckets.get(bKey);
-    if (list) list.push(i);
-    else accidentBuckets.set(bKey, [i]);
+    const iKey = `${gx}:${gy}`;
+    const iList = insideBuckets.get(iKey);
+    if (iList) iList.push(i);
+    else insideBuckets.set(iKey, [i]);
 
     const hx = Math.floor(a.lng / hotspotGridLng);
     const hy = Math.floor(a.lat / hotspotGridLat);
@@ -916,6 +1224,27 @@ export async function buildCustomAreaCameraPlan(
     }
   }
 
+  for (let i = 0; i < bufferedAccidents.length; i++) {
+    const a = bufferedAccidents[i];
+    const gx = Math.floor(a.lng / ACC_CELL_DEG);
+    const gy = Math.floor(a.lat / ACC_CELL_DEG);
+    const bKey = `${gx}:${gy}`;
+    const bList = bufferedBuckets.get(bKey);
+    if (bList) bList.push(i);
+    else bufferedBuckets.set(bKey, [i]);
+  }
+
+  // Index official wildlife warning road vertices (~150 m proximity bonus)
+  const WARN_CELL_DEG = 0.01;
+  const warnPointBuckets = new Set<string>();
+  for (const w of localWarnings) {
+    for (const [wLng, wLat] of w.coords) {
+      warnPointBuckets.add(
+        `${Math.floor(wLng / WARN_CELL_DEG)}:${Math.floor(wLat / WARN_CELL_DEG)}`
+      );
+    }
+  }
+
   const hotspots: Array<[number, number, number]> = Array.from(hotspotCells.values())
     .sort((a, b) => b.count - a.count)
     .slice(0, 260)
@@ -925,240 +1254,253 @@ export async function buildCustomAreaCameraPlan(
       c.count,
     ]);
 
-  // Sample candidate road-tangent camera stations finely along stitched chains so hotspots support dense chains
-  const sampleStepM = totalRoadM > 350_000 ? 52 : totalRoadM > 120_000 ? 36 : 26;
-  const candidates: CandidateRoadStation[] = [];
+  // 4. Sample candidate roadside stations along stitched chains, using finer spacing on larger highways
+  // so major roads can always achieve seamless tip-to-tip coverage regardless of total small-road mileage
+  const desiredCandidateBudget = Math.min(4500, Math.max(900, targetCameraCount * 18));
+  const rawStep = Math.floor(totalRoadM / desiredCandidateBudget);
+  const baseSampleStepM = Math.max(18, Math.min(110, rawStep || 24));
+  const maxSightDeviationM = Math.max(3.5, sightRangeM * Math.tan(((fovDeg / 2) * Math.PI) / 180) * 0.45);
 
-  for (let chainIdx = 0; chainIdx < chains.length; chainIdx++) {
-    const chain = chains[chainIdx];
-    const marginM = Math.min(42, chain.totalLengthM * 0.25);
-    for (
-      let s = marginM;
-      s <= chain.totalLengthM - marginM + 0.1;
-      s += sampleStepM
-    ) {
-      const origin = interpolateAlongChain(chain, s);
-      const lookAheadM = Math.min(40, chain.totalLengthM - s);
-      const lookBehindM = Math.min(40, s);
-      if (lookAheadM < 18 && lookBehindM < 18) continue;
+  let skippedCityCentreStations = 0;
+  const excludedCentreMetersByChain = new Map<number, number>();
 
-      const aheadPt = interpolateAlongChain(chain, s + Math.max(18, lookAheadM));
-      const behindPt = interpolateAlongChain(chain, s - Math.max(18, lookBehindM));
+  const buildCandidates = (maxBendDeg: number, sightMultiplier: number): CandidateRoadStation[] => {
+    const list: CandidateRoadStation[] = [];
+    skippedCityCentreStations = 0;
+    excludedCentreMetersByChain.clear();
 
-      const bearingFwd = compassBearingDeg(origin.lat, origin.lng, aheadPt.lat, aheadPt.lng);
-      const bearingRev = compassBearingDeg(origin.lat, origin.lng, behindPt.lat, behindPt.lng);
+    for (let chainIdx = 0; chainIdx < chains.length; chainIdx++) {
+      const chain = chains[chainIdx];
+      const chainStepM =
+        chain.roadTier === 1
+          ? Math.max(18, Math.min(40, baseSampleStepM))
+          : baseSampleStepM;
+      const marginM = Math.min(25, chain.totalLengthM * 0.18);
+      for (let s = marginM; s <= chain.totalLengthM - marginM + 0.1; s += chainStepM) {
+        const origin = interpolateAlongChain(chain, s);
 
-      // Measure bend angle across +-40 m so we prefer straight highway stretches
-      const forwardFromBehind = compassBearingDeg(behindPt.lat, behindPt.lng, origin.lat, origin.lng);
-      const turnAngleDeg = shortestAngleDiff(forwardFromBehind, bearingFwd);
-      if (turnAngleDeg > 28) continue;
+        // Exclude built-up city centre areas completely from wildlife camera placement
+        if (isPointInCityCentreArea(origin.lat, origin.lng, urbanCentreIndex)) {
+          skippedCityCentreStations++;
+          excludedCentreMetersByChain.set(
+            chainIdx,
+            (excludedCentreMetersByChain.get(chainIdx) ?? 0) + chainStepM
+          );
+          continue;
+        }
 
-      // Gather nearby Ramboll accidents within 500 m
-      const gx = Math.floor(origin.lng / ACC_CELL_DEG);
-      const gy = Math.floor(origin.lat / ACC_CELL_DEG);
-      let acc500 = 0;
-      let wtd = 0;
-      let roe = 0;
-      let moose = 0;
-      let kernelDensity = 0;
-      let fwdDirectionalHits = 0;
-      let revDirectionalHits = 0;
-      const nearbyIndices: number[] = [];
+        const lookAheadM = Math.min(sightRangeM, chain.totalLengthM - s);
+        const lookBehindM = Math.min(sightRangeM, s);
+        if (lookAheadM < 16 && lookBehindM < 16) continue;
 
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          const bucket = accidentBuckets.get(`${gx + dx}:${gy + dy}`);
-          if (!bucket) continue;
-          for (const accIdx of bucket) {
-            const acc = accidents[accIdx];
-            const dist = groundDistanceM(origin.lat, origin.lng, acc.lat, acc.lng);
-            if (dist <= 500) {
-              acc500++;
-              nearbyIndices.push(accIdx);
-              if (acc.speciesClass === 1) moose++;
-              else if (acc.speciesClass === 3) roe++;
-              else wtd++;
+        const aheadTarget = interpolateAlongChain(chain, s + Math.max(16, lookAheadM));
+        const behindTarget = interpolateAlongChain(chain, s - Math.max(16, lookBehindM));
 
-              // Sharp kernel strongly rewarding tight (<165m) collision blackspots
-              const w =
-                dist <= 85
-                  ? 5.6
-                  : dist <= 165
-                    ? 3.4
-                    : dist <= 280
-                      ? 1.5
-                      : 0.5;
-              const speciesMultiplier = acc.speciesClass === 1 ? 1.25 : 1.0;
-              kernelDensity += w * speciesMultiplier;
+        const bearingFwd = compassBearingDeg(origin.lat, origin.lng, aheadTarget.lat, aheadTarget.lng);
+        const bearingRev = compassBearingDeg(origin.lat, origin.lng, behindTarget.lat, behindTarget.lng);
 
-              if (dist >= 8 && dist <= 145) {
-                const bToAcc = compassBearingDeg(origin.lat, origin.lng, acc.lat, acc.lng);
-                if (shortestAngleDiff(bToAcc, bearingFwd) <= 45) fwdDirectionalHits++;
-                if (shortestAngleDiff(bToAcc, bearingRev) <= 45) revDirectionalHits++;
+        const forwardFromBehind = compassBearingDeg(
+          behindTarget.lat,
+          behindTarget.lng,
+          origin.lat,
+          origin.lng
+        );
+        const turnAngleDeg = shortestAngleDiff(forwardFromBehind, bearingFwd);
+        if (turnAngleDeg > maxBendDeg) continue;
+
+        const checkDistM = Math.min(sightRangeM, 50);
+        const fwdCheck = projectPointMeters(origin.lat, origin.lng, checkDistM, bearingFwd);
+        const revCheck = projectPointMeters(origin.lat, origin.lng, checkDistM, bearingRev);
+        const fwdErrM = distancePointToChainM(fwdCheck.lat, fwdCheck.lng, chain);
+        const revErrM = distancePointToChainM(revCheck.lat, revCheck.lng, chain);
+        const fwdOk = lookAheadM >= 18 && fwdErrM <= maxSightDeviationM * sightMultiplier;
+        const revOk = lookBehindM >= 18 && revErrM <= maxSightDeviationM * sightMultiplier;
+        if (!fwdOk && !revOk) continue;
+
+        const gx = Math.floor(origin.lng / ACC_CELL_DEG);
+        const gy = Math.floor(origin.lat / ACC_CELL_DEG);
+        let acc500 = 0;
+        let wtd = 0;
+        let roe = 0;
+        let moose = 0;
+        let kernelDensity = 0;
+        let fwdDirectionalHits = 0;
+        let revDirectionalHits = 0;
+
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const bucket = bufferedBuckets.get(`${gx + dx}:${gy + dy}`);
+            if (!bucket) continue;
+            for (const accIdx of bucket) {
+              const acc = bufferedAccidents[accIdx];
+              const dist = groundDistanceM(origin.lat, origin.lng, acc.lat, acc.lng);
+              if (dist <= 500) {
+                acc500++;
+                if (acc.speciesClass === 1) moose++;
+                else if (acc.speciesClass === 3) roe++;
+                else wtd++;
+
+                const w =
+                  dist <= 75
+                    ? 6.0
+                    : dist <= 160
+                      ? 3.6
+                      : dist <= 280
+                        ? 1.55
+                        : 0.5;
+                const speciesMult = acc.speciesClass === 1 ? 1.25 : 1.0;
+                kernelDensity += w * speciesMult;
+
+                if (dist >= 6 && dist <= Math.max(90, sightRangeM * 1.8)) {
+                  const bToAcc = compassBearingDeg(origin.lat, origin.lng, acc.lat, acc.lng);
+                  if (shortestAngleDiff(bToAcc, bearingFwd) <= Math.max(25, fovDeg)) {
+                    fwdDirectionalHits++;
+                  }
+                  if (shortestAngleDiff(bToAcc, bearingRev) <= Math.max(25, fovDeg)) {
+                    revDirectionalHits++;
+                  }
+                }
               }
             }
           }
         }
-      }
 
-      const fwdSight30 = projectPointMeters(origin.lat, origin.lng, 30, bearingFwd);
-      const revSight30 = projectPointMeters(origin.lat, origin.lng, 30, bearingRev);
-      const fwdErrM = distancePointToChainM(fwdSight30.lat, fwdSight30.lng, chain);
-      const revErrM = distancePointToChainM(revSight30.lat, revSight30.lng, chain);
-      const fwdOk = fwdErrM <= 3.4;
-      const revOk = revErrM <= 3.4;
-      if (!fwdOk && !revOk) continue;
-
-      let chosenBearing: number;
-      let altBearingDeg: number | null = null;
-
-      if (fwdOk && revOk) {
-        chosenBearing = fwdDirectionalHits >= revDirectionalHits ? bearingFwd : bearingRev;
-        if (Math.abs(fwdDirectionalHits - revDirectionalHits) <= 3) {
-          altBearingDeg = chosenBearing === bearingFwd ? bearingRev : bearingFwd;
+        // Track strictly inside-polygon accidents within 500 m for summary metrics
+        const nearbyInsideIndices: number[] = [];
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const iBucket = insideBuckets.get(`${gx + dx}:${gy + dy}`);
+            if (!iBucket) continue;
+            for (const inIdx of iBucket) {
+              const acc = insideAccidents[inIdx];
+              if (groundDistanceM(origin.lat, origin.lng, acc.lat, acc.lng) <= 500) {
+                nearbyInsideIndices.push(inIdx);
+              }
+            }
+          }
         }
-      } else {
-        chosenBearing = fwdOk ? bearingFwd : bearingRev;
+
+        const bidirectionalMount = computeRoadsideMount(
+          origin,
+          fwdOk ? bearingFwd : bearingRev,
+          fwdOk ? aheadTarget : null,
+          revOk ? behindTarget : null,
+          polygon
+        );
+
+        const onWarningCorridor = warnPointBuckets.has(
+          `${Math.floor(origin.lng / WARN_CELL_DEG)}:${Math.floor(origin.lat / WARN_CELL_DEG)}`
+        );
+        const warningMultiplier = onWarningCorridor ? 1.12 : 1.0;
+        const bothSightlinesFactor = fwdOk && revOk ? 1.06 : 0.94;
+        const straightnessBonus = Math.max(0.72, 1.0 - turnAngleDeg / 55) * bothSightlinesFactor;
+        const directionalCaptureBonus = Math.min(1.2, (fwdDirectionalHits + revDirectionalHits) * 0.08);
+        // Gentle corridor prominence baseline across orange roads so cameras spread across all orange corridors
+        // while preferring higher-activity stretches and major trunk routes when risk is equal
+        const baselineCorridorScore = 1.8 + chain.hierarchyWeight * 1.8;
+        const temperedWildlifeScore =
+          Math.pow(kernelDensity, 0.58) * 1.45 + Math.sqrt(acc500) * 0.9 + directionalCaptureBonus;
+        const score =
+          (baselineCorridorScore + temperedWildlifeScore * warningMultiplier) *
+          straightnessBonus;
+
+        list.push({
+          chainIdx,
+          stationDistM: s,
+          lat: bidirectionalMount.lat,
+          lng: bidirectionalMount.lng,
+          bearingDeg: bidirectionalMount.bearingDeg,
+          reverseBearingDeg: bidirectionalMount.reverseBearingDeg,
+          roadLabel: chain.roadLabel,
+          roadTier: chain.roadTier,
+          hierarchyWeight: chain.hierarchyWeight,
+          turnAngleDeg,
+          score,
+          accidents500m: acc500,
+          whiteTailedDeer: wtd,
+          roeDeer: roe,
+          moose,
+          nearbyInsideIndices,
+        });
       }
-
-      const straightnessBonus = Math.max(0.7, 1.0 - turnAngleDeg / 55);
-      // Nonlinear collision priority exponent concentrates cameras densely on proven hotspots
-      const collisionPriority = Math.pow(kernelDensity, 1.38) * 2.2 + acc500 * 0.8;
-      const score = (collisionPriority + chain.hierarchyWeight * 0.25) * straightnessBonus;
-
-      candidates.push({
-        chainIdx,
-        stationDistM: s,
-        lat: Number(origin.lat.toFixed(5)),
-        lng: Number(origin.lng.toFixed(5)),
-        bearingDeg: chosenBearing,
-        altBearingDeg,
-        roadLabel: chain.roadLabel,
-        hierarchyWeight: chain.hierarchyWeight,
-        turnAngleDeg,
-        score,
-        accidents500m: acc500,
-        whiteTailedDeer: wtd,
-        roeDeer: roe,
-        moose,
-        nearbyAccidentIndices: nearbyIndices,
-      });
     }
+    return list;
+  };
+
+  let candidates = buildCandidates(30, 1.2);
+  if (candidates.length < Math.min(targetCameraCount, 12)) {
+    candidates = buildCandidates(42, 1.75);
   }
 
   if (candidates.length === 0) {
+    if (skippedCityCentreStations > 0) {
+      throw new Error(
+        'The selected area lies within a city centre area where wildlife cameras are not placed. Draw a larger area that extends onto roads outside the city centre.'
+      );
+    }
     throw new Error(
-      `Found roads within ${radiusKm} km, but none had straight motor-road segments suitable for camera sightlines. Try increasing the radius slightly.`
+      'Roads were found in the drawn area, but none had segments long enough for 60 m roadside sightlines. Draw a slightly larger area.'
     );
   }
 
-  candidates.sort((a, b) => b.score - a.score || b.accidents500m - a.accidents500m);
-
-  // Priority-adaptive spacing: high-priority Ramboll collision stretches receive dense 80–120 m
-  // roadside coverage, whereas lower-priority corridors stay widely spaced unless spare units remain.
-  const topScore = Math.max(1, candidates[0].score);
-  const topAcc = Math.max(1, candidates[0].accidents500m);
-
-  const computeRequiredSpacingM = (cand: CandidateRoadStation, passScale: number): number => {
-    const normScore = cand.score / topScore;
-    const normAcc = cand.accidents500m / Math.max(8, topAcc * 0.85);
-    const priorityRatio = Math.min(1, Math.max(normScore, normAcc));
-
-    let rawSpacingM: number;
-    if (priorityRatio >= 0.58 || cand.accidents500m >= 12) {
-      // Critical collision blackspot: tight 78–118 m spacing along the hotspot corridor
-      rawSpacingM = Math.max(76, Math.min(118, 72 + radiusKm * 1.8));
-    } else if (priorityRatio >= 0.30 || cand.accidents500m >= 6) {
-      // High-priority corridor: 130–210 m spacing
-      rawSpacingM = Math.max(125, Math.min(215, 110 + radiusKm * 3.8));
-    } else if (priorityRatio >= 0.14 || cand.accidents500m >= 3) {
-      // Moderate corridor: 220–380 m spacing
-      rawSpacingM = Math.max(210, Math.min(390, 180 + radiusKm * 7.5));
-    } else {
-      // Low-priority background roads: wide 400–880 m spacing
-      rawSpacingM = Math.max(380, Math.min(880, radiusKm * 34));
-    }
-    return Math.max(58, Math.round(rawSpacingM * passScale));
-  };
-
-  const selected: CandidateRoadStation[] = [];
-  const pickedIndices = new Set<number>();
-
-  for (const passScale of [1.0, 0.74, 0.54, 0.4]) {
-    if (selected.length >= TARGET_CAMERA_COUNT) break;
-    for (let i = 0; i < candidates.length && selected.length < TARGET_CAMERA_COUNT; i++) {
-      if (pickedIndices.has(i)) continue;
-      const cand = candidates[i];
-      const minSpacingM = computeRequiredSpacingM(cand, passScale);
-      let tooClose = false;
-      for (const existing of selected) {
-        if (groundDistanceM(cand.lat, cand.lng, existing.lat, existing.lng) < minSpacingM) {
-          tooClose = true;
-          break;
-        }
-      }
-      if (!tooClose) {
-        pickedIndices.add(i);
-        selected.push(cand);
-      }
-    }
+  // 5. Hierarchical Road Prioritization & Proper-Coverage Saturation (outside city centre areas):
+  // Allocates cameras strictly to large (orange) roads first and only places cameras on smaller roads
+  // once all non-centre orange roads in the Area of Interest are properly covered.
+  const chainLengthByIdx = new Map<number, number>();
+  for (let i = 0; i < chains.length; i++) {
+    const activeLenM = Math.max(
+      60,
+      chains[i].totalLengthM - (excludedCentreMetersByChain.get(i) ?? 0)
+    );
+    chainLengthByIdx.set(i, activeLenM);
   }
 
-  // Alternate bidirectional bearings on adjacent tightly-spaced stations along the same road chain
-  const byChain = new Map<number, CandidateRoadStation[]>();
-  for (const st of selected) {
-    const arr = byChain.get(st.chainIdx);
-    if (arr) arr.push(st);
-    else byChain.set(st.chainIdx, [st]);
-  }
-  for (const arr of byChain.values()) {
-    if (arr.length < 2) continue;
-    arr.sort((a, b) => a.stationDistM - b.stationDistM);
-    for (let k = 1; k < arr.length; k++) {
-      const prev = arr[k - 1];
-      const cur = arr[k];
-      if (
-        cur.altBearingDeg !== null &&
-        cur.stationDistM - prev.stationDistM <= 260 &&
-        shortestAngleDiff(prev.bearingDeg, cur.bearingDeg) < 25
-      ) {
-        cur.bearingDeg = cur.altBearingDeg;
-      }
-    }
-  }
+  const selected = selectRoadStationsByHierarchy(
+    candidates,
+    chainLengthByIdx,
+    targetCameraCount,
+    sightRangeM
+  );
 
-  // Final sort by historical collision count + score so CUS-001 is the #1 hotspot in the radius
-  selected.sort((a, b) => b.accidents500m - a.accidents500m || b.score - a.score);
+  selected.sort(
+    (a, b) => a.roadTier - b.roadTier || b.accidents500m - a.accidents500m || b.score - a.score
+  );
 
-  const coveredAccidentSet = new Set<number>();
+  const resolvedAreaId =
+    params.areaId && /^[a-zA-Z0-9_-]{1,36}$/.test(params.areaId.trim())
+      ? params.areaId.trim()
+      : 'area-1';
+  const resolvedPrefix =
+    params.cameraPrefix && /^[a-zA-Z0-9]{1,10}$/.test(params.cameraPrefix.trim())
+      ? params.cameraPrefix.trim().toUpperCase()
+      : 'AOI';
+
+  const coveredInsideAccidentSet = new Set<number>();
   const roadCounter = new Map<string, number>();
+  const padDigits = Math.max(3, String(selected.length).length);
 
   const cameras: PlannedCameraNode[] = selected.map((st, idx) => {
     const unitNumber = idx + 1;
-    for (const accIdx of st.nearbyAccidentIndices) {
-      coveredAccidentSet.add(accIdx);
+    for (const inIdx of st.nearbyInsideIndices) {
+      coveredInsideAccidentSet.add(inIdx);
     }
     const cleanRoadKey = st.roadLabel.split(' (')[0];
     roadCounter.set(cleanRoadKey, (roadCounter.get(cleanRoadKey) ?? 0) + 1);
 
-    const sectorIndex = assignAngularSector(lat, lng, st.lat, st.lng);
     return {
-      id: `CUS-${String(unitNumber).padStart(3, '0')}`,
-      cityId: 'custom-area',
+      id: `${resolvedPrefix}-${String(unitNumber).padStart(padDigits, '0')}`,
+      cityId: resolvedAreaId,
       cityName: label,
-      sectorIndex,
-      sectorName: `${label} (${radiusKm} km Radius)`,
-      sectorPeriod: 'Jan 1 – Dec 31',
       unitNumber,
-      rankInSector: unitNumber,
       rankInCity: unitNumber,
       clusterIndex: unitNumber,
       clusterSize: 1,
       roadLabel: st.roadLabel,
-      clusterLabel: `Hotspot #${unitNumber} · ${st.roadLabel}`,
+      clusterLabel: `Roadside #${unitNumber} · ${st.roadLabel}`,
       lat: st.lat,
       lng: st.lng,
       bearingDeg: st.bearingDeg,
+      reverseBearingDeg: st.reverseBearingDeg,
       historicalAccidents: st.accidents500m,
       whiteTailedDeer: st.whiteTailedDeer,
       roeDeer: st.roeDeer,
@@ -1172,21 +1514,71 @@ export async function buildCustomAreaCameraPlan(
     .map(([r]) => r);
 
   return {
-    id: 'custom-area',
+    id: resolvedAreaId,
     label,
-    center: { lat: Number(lat.toFixed(5)), lng: Number(lng.toFixed(5)) },
-    radiusKm,
-    areaKm2: Number((Math.PI * radiusKm * radiusKm).toFixed(1)),
+    center: {
+      lat: Number(bbox.centerLat.toFixed(5)),
+      lng: Number(bbox.centerLng.toFixed(5)),
+    },
+    radiusKm: Number(bbox.equivRadiusKm.toFixed(1)),
+    polygon: polygon.map((p) => ({
+      lat: Number(p.lat.toFixed(5)),
+      lng: Number(p.lng.toFixed(5)),
+    })),
+    areaKm2: Number(areaKm2Raw.toFixed(1)),
     roadNetworkKm,
-    targetCameraCount: TARGET_CAMERA_COUNT,
+    targetCameraCount,
     dataSourceUrl: RAMBOLL_SOURCE_URL,
     dataPeriod: '2021–2025',
-    totalAccidentsInRadius: accidents.length,
-    corridorAccidentsNearCameras: coveredAccidentSet.size,
+    offlineDatasetRecords: nationwideTotal,
+    totalAccidentsInRadius: insideAccidents.length,
+    corridorAccidentsNearCameras: coveredInsideAccidentSet.size,
     speciesTotals,
     byYear,
     primaryRoads: topRoads.length > 0 ? topRoads.join(' · ') : 'Local roads',
     hotspots,
+    roadPolylines: extractSimulationRoadPolylines(
+      chains,
+      new Set(selected.map((st) => st.chainIdx))
+    ),
     cameras,
   };
+}
+
+/**
+ * Circular convenience wrapper delegating into the offline-backed polygon camera planner.
+ */
+export async function buildCustomAreaCameraPlan(
+  params: CustomAreaRequestParams
+): Promise<CustomAreaPlanResult> {
+  const lat = Number(params.lat);
+  const lng = Number(params.lng);
+  const radiusKm = Math.max(2, Math.min(50, Number(params.radiusKm) || 12));
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < 59.4 ||
+    lat > 70.2 ||
+    lng < 19.0 ||
+    lng > 31.7
+  ) {
+    throw new Error('Selected coordinates must lie within Finland (59.5°N–70.1°N, 19.1°E–31.6°E).');
+  }
+
+  const steps = 64;
+  const circlePolygon: Array<{ lat: number; lng: number }> = [];
+  for (let i = 0; i < steps; i++) {
+    circlePolygon.push(projectPointMeters(lat, lng, radiusKm * 1000, (360 * i) / steps));
+  }
+
+  return buildPolygonAreaCameraPlan({
+    polygon: circlePolygon,
+    cameraCount: params.cameraCount ?? 100,
+    rangeMeters: params.rangeMeters ?? 60,
+    fovDeg: params.fovDeg ?? 30,
+    label: params.label,
+    areaId: params.areaId,
+    cameraPrefix: params.cameraPrefix,
+  });
 }

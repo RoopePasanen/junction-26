@@ -13,12 +13,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildCustomAreaCameraPlan } from '../src/server/rambollCustomPlanner.ts';
 import {
-  buildCustomAreaCameraPlan,
   fetchRambollAccidentsInCircle,
   groundDistanceM,
   type DecodedRambollAccident,
-} from '../src/server/rambollCustomPlanner.ts';
+} from '../src/server/rambollLiveFetch.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(here, '..', 'src', 'data', 'customerSites.ts');
