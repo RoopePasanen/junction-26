@@ -3,28 +3,24 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CanvasFinlandMap } from './components/CanvasFinlandMap';
 import { GoogleFinlandMap } from './components/GoogleFinlandMap';
 import { MapControlsOverlay } from './components/MapControlsOverlay';
 import { SidebarPanel, type SidebarTabId } from './components/SidebarPanel';
+import type { PlannedCameraNode } from './data/finlandWildlifePlan';
 import {
-  TOP_5_WILDLIFE_ACCIDENT_CITIES,
-  type CityCameraPlan,
-  type PlannedCameraNode,
-  type SectorFilter,
-} from './data/finlandWildlifePlan';
-import {
-  CUSTOM_FINLAND_LOCATION_PRESETS,
-  recommendedZoomForRadiusKm,
+  DEFAULT_PLOTTED_CAMERAS,
+  MAX_PLOTTED_CAMERAS,
+  MIN_PLOTTED_CAMERAS,
   type CustomAreaPlanResult,
   type CustomLocationPreset,
-  type PlanScopeMode,
+  type DrawingToolMode,
 } from './types/customAreaPlan';
 import {
+  buildGeographicCircleRing,
   clampCoverageConfig,
   DEFAULT_COVERAGE_CONFIG,
-  resolveCityIdOnCameraSelect,
   type CameraCoverageConfig,
 } from './utils/cameraPlanGeometry';
 import {
@@ -32,10 +28,7 @@ import {
   evaluateCrossingEvents,
   extractAvailableYears,
   filterEventsInCoveredCities,
-  generateCustomAreaDemoCrossings,
-  getCamerasForArrangement,
-  getDemoSyntheticEvents,
-  isArrangementRotational,
+  generateAreasDemoCrossings,
   type CrossingEvent,
   type CustomAreaSimulationScope,
   type EvaluatedCrossingEvent,
@@ -44,16 +37,19 @@ import {
 import {
   clampCamera,
   DEFAULT_FINLAND_CAMERA,
+  FINLAND_REGIONS,
   resolveGoogleMapTypeId,
-  validateCoordinateInput,
   ZOOM_STEP,
   type BaseMapMode,
   type CameraState,
   type LatLngPoint,
   type RegionPreset,
 } from './utils/mapMath';
-
-const INITIAL_PRESET = CUSTOM_FINLAND_LOCATION_PRESETS[0];
+import {
+  computePolygonBBox,
+  polygonsApproximatelyEqual,
+  recommendedZoomForPolygon,
+} from './utils/polygonGeometry';
 
 export default function App() {
   const configuredApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '').trim();
@@ -64,19 +60,22 @@ export default function App() {
   const [cursorPoint, setCursorPoint] = useState<LatLngPoint | null>(null);
   const [activeRegionId, setActiveRegionId] = useState<string | null>('overview');
 
-  const [planScope, setPlanScope] = useState<PlanScopeMode>('top5');
-  const [customAreaPlan, setCustomAreaPlan] = useState<CustomAreaPlanResult | null>(null);
-  const [selectedPresetId, setSelectedPresetId] = useState<string>(INITIAL_PRESET.id);
-  const [draftLat, setDraftLat] = useState<string>(INITIAL_PRESET.lat.toFixed(4));
-  const [draftLng, setDraftLng] = useState<string>(INITIAL_PRESET.lng.toFixed(4));
-  const [draftRadiusKm, setDraftRadiusKm] = useState<number>(INITIAL_PRESET.defaultRadiusKm);
-  const [draftLabel, setDraftLabel] = useState<string>(INITIAL_PRESET.name);
-  const [isPickingCustomCenter, setIsPickingCustomCenter] = useState<boolean>(false);
+  // Empty map initial state: zero preloaded cities, user adds & removes Areas of Interest freely
+  const [areasOfInterest, setAreasOfInterest] = useState<CustomAreaPlanResult[]>([]);
+  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
+  const nextAreaSeqRef = useRef<number>(1);
+
+  const [drawingMode, setDrawingMode] = useState<DrawingToolMode>('none');
+  const [drawnPolygon, setDrawnPolygon] = useState<LatLngPoint[]>([]);
+  const [draftPolygonVertices, setDraftPolygonVertices] = useState<LatLngPoint[]>([]);
+  const [cameraCountInput, setCameraCountInput] = useState<string>(
+    String(DEFAULT_PLOTTED_CAMERAS)
+  );
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('custom');
+  const [draftLabel, setDraftLabel] = useState<string>('');
   const [isLoadingCustomPlan, setIsLoadingCustomPlan] = useState<boolean>(false);
   const [customPlanError, setCustomPlanError] = useState<string | null>(null);
 
-  const [selectedCityId, setSelectedCityId] = useState<string>('all');
-  const [selectedSector, setSelectedSector] = useState<SectorFilter>('all');
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
   const [coverageConfig, setCoverageConfig] = useState<CameraCoverageConfig>(
     DEFAULT_COVERAGE_CONFIG
@@ -96,16 +95,61 @@ export default function App() {
   const [showMapLegend, setShowMapLegend] = useState<boolean>(true);
   const [mobilePanelOpen, setMobilePanelOpen] = useState<boolean>(false);
 
+  const handleCompletePolygon = useCallback(
+    (polygon: LatLngPoint[]) => {
+      if (polygon.length < 3) return;
+      setDrawnPolygon(polygon);
+      setDraftPolygonVertices([]);
+      setDrawingMode('none');
+      setSelectedPresetId('custom');
+      setCustomPlanError(null);
+
+      const currentlySelectedArea = areasOfInterest.find((a) => a.id === selectedAreaId) ?? null;
+      const isSameAsSelected =
+        currentlySelectedArea !== null &&
+        polygonsApproximatelyEqual(polygon, currentlySelectedArea.polygon);
+
+      if (!isSameAsSelected) {
+        setSelectedAreaId(null);
+        const bbox = computePolygonBBox(polygon);
+        const seqNum = nextAreaSeqRef.current;
+        setDraftLabel((prev) => {
+          const trimmed = prev.trim();
+          const wasPreviousSelectedLabel =
+            currentlySelectedArea !== null && trimmed === currentlySelectedArea.label;
+          if (
+            !trimmed ||
+            wasPreviousSelectedLabel ||
+            trimmed.startsWith('Area of Interest ') ||
+            trimmed.startsWith('Drawn Area (')
+          ) {
+            return `Area of Interest ${seqNum} (${bbox.centerLat.toFixed(2)}°N, ${bbox.centerLng.toFixed(2)}°E)`;
+          }
+          return prev;
+        });
+      }
+    },
+    [areasOfInterest, selectedAreaId]
+  );
+
   useEffect(() => {
-    if (!isPickingCustomCenter) return;
-    const handleEsc = (e: KeyboardEvent) => {
+    if (drawingMode === 'none') return;
+    const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setIsPickingCustomCenter(false);
+        setDrawingMode('none');
+        setDraftPolygonVertices([]);
+      } else if (
+        e.key === 'Enter' &&
+        drawingMode === 'polygon' &&
+        draftPolygonVertices.length >= 3
+      ) {
+        e.preventDefault();
+        handleCompletePolygon(draftPolygonVertices);
       }
     };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [isPickingCustomCenter]);
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [draftPolygonVertices, drawingMode, handleCompletePolygon]);
 
   const usingGoogleMaps = Boolean(configuredApiKey) && !googleAuthFailed;
 
@@ -114,46 +158,25 @@ export default function App() {
     [mode, showLabels, showTerrain]
   );
 
-  const customDraftArea = useMemo(() => {
-    const validated = validateCoordinateInput(draftLat, draftLng);
-    if (!validated.valid || !validated.point) return null;
-    return {
-      center: validated.point,
-      radiusKm: draftRadiusKm,
-      label: draftLabel.trim() || 'Custom Area',
-    };
-  }, [draftLabel, draftLat, draftLng, draftRadiusKm]);
-
-  const isRotational = useMemo(
-    () => planScope !== 'custom' && isArrangementRotational(simulatorConfig.arrangementId),
-    [planScope, simulatorConfig.arrangementId]
+  const allArrangementCameras = useMemo(
+    () => areasOfInterest.flatMap((area) => area.cameras),
+    [areasOfInterest]
   );
 
-  const allArrangementCameras = useMemo(() => {
-    if (planScope === 'custom') {
-      return customAreaPlan ? customAreaPlan.cameras : [];
-    }
-    return getCamerasForArrangement(simulatorConfig.arrangementId);
-  }, [customAreaPlan, planScope, simulatorConfig.arrangementId]);
+  const visibleCameras = allArrangementCameras;
 
-  const visibleCameras = useMemo(() => {
-    if (planScope === 'custom') {
-      return allArrangementCameras;
-    }
-    if (!isRotational || selectedSector === 'all') {
-      return allArrangementCameras;
-    }
-    return allArrangementCameras.filter((cam) => cam.sectorIndex === selectedSector);
-  }, [allArrangementCameras, isRotational, planScope, selectedSector]);
-
-  const activeCustomSimScope = useMemo<CustomAreaSimulationScope | null>(() => {
-    if (planScope !== 'custom' || !customAreaPlan) return null;
-    return {
-      center: customAreaPlan.center,
-      radiusKm: customAreaPlan.radiusKm,
-      label: customAreaPlan.label,
-    };
-  }, [customAreaPlan, planScope]);
+  const activeSimScopes = useMemo<CustomAreaSimulationScope[]>(
+    () =>
+      areasOfInterest.map((area) => ({
+        id: area.id,
+        center: area.center,
+        radiusKm: area.radiusKm,
+        label: area.label,
+        polygon: area.polygon,
+        roadPolylines: area.roadPolylines,
+      })),
+    [areasOfInterest]
+  );
 
   const { evaluated: evaluatedEvents, summary: simulationSummary } = useMemo(
     () =>
@@ -162,16 +185,13 @@ export default function App() {
         allArrangementCameras,
         coverageConfig,
         simulatorConfig,
-        isRotational ? selectedSector : 'all',
-        activeCustomSimScope
+        activeSimScopes
       ),
     [
-      activeCustomSimScope,
+      activeSimScopes,
       allArrangementCameras,
       coverageConfig,
       crossingEvents,
-      isRotational,
-      selectedSector,
       simulatorConfig,
     ]
   );
@@ -202,134 +222,185 @@ export default function App() {
   }, []);
 
   const handleResetFinlandView = useCallback(() => {
-    setPlanScope('top5');
-    setIsPickingCustomCenter(false);
+    setDrawingMode('none');
+    setDraftPolygonVertices([]);
     setCamera(DEFAULT_FINLAND_CAMERA);
-    setSelectedCityId('all');
-    setSelectedSector('all');
     setSelectedCameraId(null);
     setSelectedCrossingEventId(null);
     setActiveRegionId('overview');
   }, []);
 
-  const handlePlanScopeChange = useCallback(
-    (nextScope: PlanScopeMode) => {
-      setPlanScope(nextScope);
-      setIsPickingCustomCenter(false);
-      setSelectedCameraId(null);
-      setCustomPlanError(null);
-      if (nextScope === 'custom') {
-        if (customAreaPlan) {
-          setCamera(
-            clampCamera({
-              center: customAreaPlan.center,
-              zoom: recommendedZoomForRadiusKm(customAreaPlan.radiusKm),
-            })
-          );
-          setActiveRegionId(null);
-        } else {
-          const validated = validateCoordinateInput(draftLat, draftLng);
-          if (validated.valid && validated.point) {
-            setCamera(
-              clampCamera({
-                center: validated.point,
-                zoom: recommendedZoomForRadiusKm(draftRadiusKm),
-              })
-            );
-            setActiveRegionId(null);
-          }
-        }
-      } else {
-        if (selectedCityId !== 'all') {
-          const city = TOP_5_WILDLIFE_ACCIDENT_CITIES.find((c) => c.id === selectedCityId);
-          if (city) {
-            setCamera(clampCamera({ center: city.center, zoom: city.zoom }));
-            return;
-          }
-        }
-        setCamera(DEFAULT_FINLAND_CAMERA);
-        setActiveRegionId('overview');
-      }
-    },
-    [customAreaPlan, draftLat, draftLng, draftRadiusKm, selectedCityId]
-  );
+  const handleStartNewArea = useCallback(() => {
+    setSidebarTab('plan');
+    setSelectedAreaId(null);
+    setSelectedCameraId(null);
+    setDrawnPolygon([]);
+    setDraftPolygonVertices([]);
+    setSelectedPresetId('custom');
+    setDraftLabel('');
+    setCustomPlanError(null);
+    setDrawingMode('freehand');
+  }, []);
+
+  const handleStartDrawing = useCallback((nextMode: 'freehand' | 'polygon') => {
+    setSidebarTab('plan');
+    setDrawingMode(nextMode);
+    setDraftPolygonVertices([]);
+    setCustomPlanError(null);
+  }, []);
+
+  const handleAddDraftVertex = useCallback((point: LatLngPoint) => {
+    setDraftPolygonVertices((prev) => [...prev, point]);
+  }, []);
+
+  const handleUndoPolygonVertex = useCallback(() => {
+    setDraftPolygonVertices((prev) => prev.slice(0, -1));
+  }, []);
+
+  const handleFinishPolygonDraft = useCallback(() => {
+    if (draftPolygonVertices.length >= 3) {
+      handleCompletePolygon(draftPolygonVertices);
+    }
+  }, [draftPolygonVertices, handleCompletePolygon]);
+
+  const handleCancelDrawing = useCallback(() => {
+    setDrawingMode('none');
+    setDraftPolygonVertices([]);
+  }, []);
+
+  const handleClearDrawnArea = useCallback(() => {
+    setDrawnPolygon([]);
+    setDraftPolygonVertices([]);
+    setSelectedAreaId(null);
+    setSelectedPresetId('custom');
+    setDraftLabel('');
+    setCustomPlanError(null);
+  }, []);
 
   const handleSelectCustomPreset = useCallback((preset: CustomLocationPreset) => {
     setSelectedPresetId(preset.id);
-    setDraftLat(preset.lat.toFixed(4));
-    setDraftLng(preset.lng.toFixed(4));
-    setDraftRadiusKm(preset.defaultRadiusKm);
+    setSelectedAreaId(null);
     setDraftLabel(preset.name);
     setCustomPlanError(null);
-    setIsPickingCustomCenter(false);
+    setDrawingMode('none');
+    setDraftPolygonVertices([]);
+
+    const starterPolygon = buildGeographicCircleRing(
+      { lat: preset.lat, lng: preset.lng },
+      Math.min(8, preset.defaultRadiusKm) * 1000,
+      20
+    )
+      .slice(0, -1)
+      .map((p) => ({
+        lat: Number(p.lat.toFixed(5)),
+        lng: Number(p.lng.toFixed(5)),
+      }));
+
+    setDrawnPolygon(starterPolygon);
     setCamera(
       clampCamera({
         center: { lat: preset.lat, lng: preset.lng },
-        zoom: recommendedZoomForRadiusKm(preset.defaultRadiusKm),
+        zoom: recommendedZoomForPolygon(starterPolygon),
       })
     );
     setActiveRegionId(null);
   }, []);
 
-  const handlePickCustomCenterOnMap = useCallback(
-    (point: LatLngPoint) => {
-      setPlanScope('custom');
-      setSelectedPresetId('custom');
-      setDraftLat(point.lat.toFixed(4));
-      setDraftLng(point.lng.toFixed(4));
-      const matchedPreset = CUSTOM_FINLAND_LOCATION_PRESETS.some(
-        (p) => p.name.toLowerCase() === draftLabel.trim().toLowerCase()
-      );
-      if (matchedPreset || !draftLabel.trim()) {
-        setDraftLabel(`Study Area (${point.lat.toFixed(2)}°N, ${point.lng.toFixed(2)}°E)`);
-      }
-      setCustomPlanError(null);
-      setIsPickingCustomCenter(false);
-      setCamera((prev) =>
-        clampCamera({
-          center: point,
-          zoom: Math.max(prev.zoom, recommendedZoomForRadiusKm(draftRadiusKm)),
-        })
-      );
-      setActiveRegionId(null);
-    },
-    [draftLabel, draftRadiusKm]
-  );
+  const handleResetDefaultOptics = useCallback(() => {
+    setCoverageConfig((prev) =>
+      clampCoverageConfig({
+        ...prev,
+        rangeMeters: DEFAULT_COVERAGE_CONFIG.rangeMeters,
+        fovDeg: DEFAULT_COVERAGE_CONFIG.fovDeg,
+      })
+    );
+  }, []);
 
-  const handleDistributeCustomCameras = useCallback(async () => {
-    const validated = validateCoordinateInput(draftLat, draftLng);
-    if (!validated.valid || !validated.point) {
-      setCustomPlanError(validated.error ?? 'Enter valid latitude and longitude within Finland.');
+  const handlePlotCameras = useCallback(async () => {
+    const polygonToPlot =
+      drawingMode === 'polygon' && draftPolygonVertices.length >= 3
+        ? draftPolygonVertices
+        : drawnPolygon;
+
+    if (polygonToPlot.length < 3) {
+      setCustomPlanError('Draw a closed area on the map before placing cameras.');
       return;
     }
 
+    const parsedCount = Math.round(Number(cameraCountInput.trim()));
+    if (
+      !Number.isFinite(parsedCount) ||
+      parsedCount < MIN_PLOTTED_CAMERAS ||
+      parsedCount > MAX_PLOTTED_CAMERAS
+    ) {
+      setCustomPlanError(
+        `Enter a camera count between ${MIN_PLOTTED_CAMERAS} and ${MAX_PLOTTED_CAMERAS.toLocaleString()}.`
+      );
+      return;
+    }
+
+    if (drawingMode === 'polygon' && draftPolygonVertices.length >= 3) {
+      setDrawnPolygon(draftPolygonVertices);
+      setDraftPolygonVertices([]);
+      setDrawingMode('none');
+    }
+
+    const existingSelectedArea = areasOfInterest.find((a) => a.id === selectedAreaId) ?? null;
+    const isUpdatingSelected =
+      existingSelectedArea !== null &&
+      polygonsApproximatelyEqual(polygonToPlot, existingSelectedArea.polygon);
+
+    const seqNum = nextAreaSeqRef.current;
+    const targetAreaId = isUpdatingSelected ? existingSelectedArea.id : `area-${seqNum}`;
+    const targetCameraPrefix = isUpdatingSelected
+      ? existingSelectedArea.cameras[0]?.id.split('-')[0] || `A${String(seqNum).padStart(2, '0')}`
+      : `A${String(seqNum).padStart(2, '0')}`;
+    const resolvedLabel =
+      draftLabel.trim() ||
+      (isUpdatingSelected ? existingSelectedArea.label : `Area of Interest ${seqNum}`);
+
     setIsLoadingCustomPlan(true);
     setCustomPlanError(null);
-    setIsPickingCustomCenter(false);
 
     try {
-      const qs = new URLSearchParams({
-        lat: String(validated.point.lat),
-        lng: String(validated.point.lng),
-        radiusKm: String(draftRadiusKm),
+      const res = await fetch('/api/plot-cameras', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          polygon: polygonToPlot,
+          cameraCount: parsedCount,
+          rangeMeters: coverageConfig.rangeMeters,
+          fovDeg: coverageConfig.fovDeg,
+          label: resolvedLabel,
+          areaId: targetAreaId,
+          cameraPrefix: targetCameraPrefix,
+        }),
       });
-      if (draftLabel.trim()) {
-        qs.set('label', draftLabel.trim());
-      }
 
-      const res = await fetch(`/api/custom-area-plan?${qs.toString()}`);
       const payload = (await res.json()) as CustomAreaPlanResult & { error?: string };
       if (!res.ok || payload.error) {
-        throw new Error(payload.error || 'Failed to compute 100-camera deployment plan.');
+        throw new Error(payload.error || 'Failed to plot cameras inside the drawn area.');
       }
 
-      setCustomAreaPlan(payload);
-      setPlanScope('custom');
+      if (isUpdatingSelected) {
+        setAreasOfInterest((prev) =>
+          prev.map((a) => (a.id === payload.id ? payload : a))
+        );
+      } else {
+        nextAreaSeqRef.current = seqNum + 1;
+        setAreasOfInterest((prev) => [...prev, payload]);
+      }
+
+      setSelectedAreaId(payload.id);
+      setDrawnPolygon(payload.polygon);
+      setDraftLabel(payload.label);
       setSelectedCameraId(null);
-      setCamera(
+
+      const bbox = computePolygonBBox(payload.polygon);
+      setCamera((prev) =>
         clampCamera({
-          center: payload.center,
-          zoom: recommendedZoomForRadiusKm(payload.radiusKm),
+          center: { lat: bbox.centerLat, lng: bbox.centerLng },
+          zoom: Math.max(prev.zoom, recommendedZoomForPolygon(payload.polygon)),
         })
       );
       setActiveRegionId(null);
@@ -338,71 +409,74 @@ export default function App() {
       setCustomPlanError(
         err instanceof Error
           ? err.message
-          : 'Unable to fetch Ramboll collision data and road network.'
+          : 'Unable to plot roadside cameras inside the drawn area.'
       );
     } finally {
       setIsLoadingCustomPlan(false);
     }
-  }, [draftLabel, draftLat, draftLng, draftRadiusKm]);
+  }, [
+    areasOfInterest,
+    cameraCountInput,
+    coverageConfig.fovDeg,
+    coverageConfig.rangeMeters,
+    draftLabel,
+    draftPolygonVertices,
+    drawingMode,
+    drawnPolygon,
+    selectedAreaId,
+  ]);
 
-  const handleSelectCityPlan = useCallback(
-    (cityOrAll: CityCameraPlan | 'all') => {
-      setPlanScope('top5');
-      setIsPickingCustomCenter(false);
-      if (cityOrAll === 'all') {
-        setSelectedCityId('all');
+  const handleSelectArea = useCallback((area: CustomAreaPlanResult) => {
+    setSelectedAreaId(area.id);
+    setDrawnPolygon(area.polygon);
+    setCameraCountInput(String(area.cameras.length));
+    setDraftLabel(area.label);
+    setSelectedPresetId('custom');
+    setDrawingMode('none');
+    setDraftPolygonVertices([]);
+    setCustomPlanError(null);
+    setSelectedCameraId(null);
+
+    const bbox = computePolygonBBox(area.polygon);
+    setCamera(
+      clampCamera({
+        center: { lat: bbox.centerLat, lng: bbox.centerLng },
+        zoom: recommendedZoomForPolygon(area.polygon),
+      })
+    );
+    setActiveRegionId(null);
+  }, []);
+
+  const handleRemoveArea = useCallback(
+    (areaId: string) => {
+      setAreasOfInterest((prev) => prev.filter((a) => a.id !== areaId));
+      setSelectedCrossingEventId(null);
+      if (selectedCamera?.cityId === areaId) {
         setSelectedCameraId(null);
-        setCamera(DEFAULT_FINLAND_CAMERA);
-        setActiveRegionId('overview');
-        return;
       }
-      setSelectedCityId(cityOrAll.id);
-      setSelectedCameraId(null);
-      if (selectedSector !== 'all') {
-        const sec = cityOrAll.sectors.find((s) => s.sectorIndex === selectedSector);
-        if (sec) {
-          setCamera(clampCamera({ center: sec.center, zoom: sec.zoom }));
-          setActiveRegionId(null);
-          return;
-        }
+      if (selectedAreaId === areaId) {
+        setSelectedAreaId(null);
+        setDrawnPolygon([]);
+        setDraftLabel('');
+        setSelectedPresetId('custom');
+        setCustomPlanError(null);
       }
-      setCamera(clampCamera({ center: cityOrAll.center, zoom: cityOrAll.zoom }));
-      setActiveRegionId(null);
     },
-    [selectedSector]
+    [selectedAreaId, selectedCamera]
   );
 
-  const handleSelectSector = useCallback(
-    (nextSector: SectorFilter) => {
-      setSelectedSector(nextSector);
-      if (selectedCameraId) {
-        const currentCam = allArrangementCameras.find((c) => c.id === selectedCameraId);
-        if (currentCam && nextSector !== 'all' && currentCam.sectorIndex !== nextSector) {
-          setSelectedCameraId(null);
-        }
-      }
-      if (planScope === 'top5' && selectedCityId !== 'all') {
-        const city = TOP_5_WILDLIFE_ACCIDENT_CITIES.find((c) => c.id === selectedCityId);
-        if (city) {
-          if (nextSector === 'all') {
-            setCamera(clampCamera({ center: city.center, zoom: city.zoom }));
-          } else {
-            const sec = city.sectors.find((s) => s.sectorIndex === nextSector);
-            if (sec) {
-              setCamera((prev) =>
-                clampCamera({
-                  center: sec.center,
-                  zoom: Math.max(prev.zoom, sec.zoom),
-                })
-              );
-            }
-          }
-          setActiveRegionId(null);
-        }
-      }
-    },
-    [allArrangementCameras, planScope, selectedCameraId, selectedCityId]
-  );
+  const handleRemoveAllAreas = useCallback(() => {
+    setAreasOfInterest([]);
+    setSelectedAreaId(null);
+    setSelectedCameraId(null);
+    setSelectedCrossingEventId(null);
+    setDrawnPolygon([]);
+    setDraftPolygonVertices([]);
+    setDrawingMode('none');
+    setDraftLabel('');
+    setSelectedPresetId('custom');
+    setCustomPlanError(null);
+  }, []);
 
   const handleSelectCamera = useCallback(
     (cam: PlannedCameraNode | null) => {
@@ -411,8 +485,12 @@ export default function App() {
         return;
       }
       setSelectedCameraId(cam.id);
-      if (planScope === 'top5') {
-        setSelectedCityId((prev) => resolveCityIdOnCameraSelect(prev, cam));
+      const parentArea = areasOfInterest.find((a) => a.id === cam.cityId);
+      if (parentArea) {
+        setSelectedAreaId(parentArea.id);
+        setDrawnPolygon(parentArea.polygon);
+        setCameraCountInput(String(parentArea.cameras.length));
+        setDraftLabel(parentArea.label);
       }
       setCamera((prev) =>
         clampCamera({
@@ -422,7 +500,7 @@ export default function App() {
       );
       setActiveRegionId(null);
     },
-    [planScope]
+    [areasOfInterest]
   );
 
   const handleZoomToCamera = useCallback(
@@ -430,9 +508,6 @@ export default function App() {
       const r = coverageConfig.rangeMeters;
       const targetZoom = r <= 15 ? 17.2 : r <= 40 ? 16.2 : r <= 75 ? 15.6 : 15.0;
       setSelectedCameraId(cam.id);
-      if (planScope === 'top5') {
-        setSelectedCityId((prev) => resolveCityIdOnCameraSelect(prev, cam));
-      }
       setCamera(
         clampCamera({
           center: { lat: cam.lat, lng: cam.lng },
@@ -441,7 +516,7 @@ export default function App() {
       );
       setActiveRegionId(null);
     },
-    [coverageConfig.rangeMeters, planScope]
+    [coverageConfig.rangeMeters]
   );
 
   const handleUpdateCoverageConfig = useCallback((patch: Partial<CameraCoverageConfig>) => {
@@ -472,7 +547,9 @@ export default function App() {
             ? 8.4
             : maxSpan > 0.35
               ? 9.8
-              : 11.4;
+              : maxSpan > 0.14
+                ? 11.8
+                : 12.6;
     setCamera(
       clampCamera({
         center: { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 },
@@ -487,7 +564,7 @@ export default function App() {
       const coveredEvents = filterEventsInCoveredCities(
         events,
         allArrangementCameras,
-        activeCustomSimScope
+        activeSimScopes
       );
       const years = extractAvailableYears(coveredEvents.length > 0 ? coveredEvents : events);
       const defaultMappingYear: number | 'all' =
@@ -503,18 +580,18 @@ export default function App() {
       setCoverageConfig((prev) => ({ ...prev, showAccidentHotspots: false }));
       frameLoadedEventsOnMap(coveredEvents.length > 0 ? coveredEvents : events);
     },
-    [activeCustomSimScope, allArrangementCameras, frameLoadedEventsOnMap]
+    [activeSimScopes, allArrangementCameras, frameLoadedEventsOnMap]
   );
 
   const handleLoadDemoDataset = useCallback(() => {
-    if (planScope === 'custom' && customAreaPlan) {
-      const customDemo = generateCustomAreaDemoCrossings(customAreaPlan);
-      handleLoadEvents(customDemo, `Synthetic Crossings — ${customAreaPlan.label} (2024–2026)`);
-      return;
-    }
-    const demo = getDemoSyntheticEvents();
-    handleLoadEvents(demo, 'Synthetic Crossings (2024–2026)');
-  }, [customAreaPlan, handleLoadEvents, planScope]);
+    if (areasOfInterest.length === 0) return;
+    const demoEvents = generateAreasDemoCrossings(areasOfInterest);
+    const scopeTitle =
+      areasOfInterest.length === 1
+        ? areasOfInterest[0].label
+        : `${areasOfInterest.length} Areas of Interest`;
+    handleLoadEvents(demoEvents, `Synthetic Crossings — ${scopeTitle} (2024–2026)`);
+  }, [areasOfInterest, handleLoadEvents]);
 
   const handleClearDataset = useCallback(() => {
     setCrossingEvents([]);
@@ -529,10 +606,12 @@ export default function App() {
 
   const handleFocusCrossingEvent = useCallback((ev: EvaluatedCrossingEvent) => {
     setSelectedCrossingEventId(ev.eventId);
+    const focusLat = ev.hasRoadCrossingLine ? ev.roadLat : ev.lat;
+    const focusLng = ev.hasRoadCrossingLine ? ev.roadLng : ev.lng;
     setCamera((prev) =>
       clampCamera({
-        center: { lat: ev.lat, lng: ev.lng },
-        zoom: Math.max(prev.zoom, 14.6),
+        center: { lat: focusLat, lng: focusLng },
+        zoom: Math.max(prev.zoom, 15.2),
       })
     );
     setActiveRegionId(null);
@@ -573,25 +652,23 @@ export default function App() {
         </a>
 
         <nav
-          aria-label="Top 5 wildlife accident cities"
+          aria-label="Finland regional viewports"
           className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600"
         >
-          {TOP_5_WILDLIFE_ACCIDENT_CITIES.map((city) => {
-            const isCurrent = planScope === 'top5' && selectedCityId === city.id;
+          {FINLAND_REGIONS.map((region) => {
+            const isCurrent = activeRegionId === region.id;
             return (
               <button
-                key={city.id}
+                key={region.id}
                 type="button"
-                onClick={() =>
-                  isCurrent ? handleSelectCityPlan('all') : handleSelectCityPlan(city)
-                }
+                onClick={() => handleSelectRegion(region)}
                 className={`py-1 transition-colors whitespace-nowrap shrink-0 border-b-2 ${
                   isCurrent
                     ? 'border-sky-800 text-slate-950 font-semibold'
                     : 'border-transparent hover:text-slate-950 hover:border-slate-300'
                 }`}
               >
-                {city.name}
+                {region.shortLabel}
               </button>
             );
           })}
@@ -600,10 +677,11 @@ export default function App() {
         <div className="flex items-center shrink-0">
           <button
             type="button"
-            onClick={handleResetFinlandView}
+            data-testid="header-draw-area-btn"
+            onClick={handleStartNewArea}
             className="min-h-9 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-800 whitespace-nowrap shrink-0"
           >
-            Reset Finland View
+            Draw Area of Interest
           </button>
         </div>
       </header>
@@ -629,8 +707,8 @@ export default function App() {
           showMapLegend={showMapLegend}
           usingGoogleMaps={usingGoogleMaps}
           mobileOpen={mobilePanelOpen}
-          selectedCityId={selectedCityId}
-          selectedSector={selectedSector}
+          areasOfInterest={areasOfInterest}
+          selectedAreaId={selectedAreaId}
           selectedCameraId={selectedCameraId}
           coverageConfig={coverageConfig}
           allArrangementCameras={allArrangementCameras}
@@ -641,14 +719,12 @@ export default function App() {
           simulationSummary={simulationSummary}
           simulatorConfig={simulatorConfig}
           selectedCrossingEventId={selectedCrossingEventId}
-          planScope={planScope}
-          customAreaPlan={customAreaPlan}
-          draftLat={draftLat}
-          draftLng={draftLng}
-          draftRadiusKm={draftRadiusKm}
+          drawingMode={drawingMode}
+          drawnPolygon={drawnPolygon}
+          draftPolygonVertices={draftPolygonVertices}
+          cameraCountInput={cameraCountInput}
           draftLabel={draftLabel}
           selectedPresetId={selectedPresetId}
-          isPickingCustomCenter={isPickingCustomCenter}
           isLoadingCustomPlan={isLoadingCustomPlan}
           customPlanError={customPlanError}
           onSidebarTabChange={setSidebarTab}
@@ -663,8 +739,6 @@ export default function App() {
           onZoomOut={handleZoomOut}
           onSelectRegion={handleSelectRegion}
           onJumpToCoordinates={handleJumpToCoordinates}
-          onSelectCityPlan={handleSelectCityPlan}
-          onSelectSector={handleSelectSector}
           onSelectCamera={handleSelectCamera}
           onUpdateCoverageConfig={handleUpdateCoverageConfig}
           onLoadEvents={handleLoadEvents}
@@ -672,25 +746,23 @@ export default function App() {
           onClearDataset={handleClearDataset}
           onUpdateSimulatorConfig={handleUpdateSimulatorConfig}
           onFocusCrossingEvent={handleFocusCrossingEvent}
-          onPlanScopeChange={handlePlanScopeChange}
-          onDraftLatChange={(val) => {
-            setDraftLat(val);
-            setSelectedPresetId('custom');
-            setCustomPlanError(null);
-          }}
-          onDraftLngChange={(val) => {
-            setDraftLng(val);
-            setSelectedPresetId('custom');
-            setCustomPlanError(null);
-          }}
-          onDraftRadiusChange={(r) => {
-            setDraftRadiusKm(r);
+          onStartDrawing={handleStartDrawing}
+          onStartNewArea={handleStartNewArea}
+          onFinishPolygonDraft={handleFinishPolygonDraft}
+          onUndoPolygonVertex={handleUndoPolygonVertex}
+          onCancelDrawing={handleCancelDrawing}
+          onClearDrawnArea={handleClearDrawnArea}
+          onCameraCountInputChange={(val) => {
+            setCameraCountInput(val);
             setCustomPlanError(null);
           }}
           onDraftLabelChange={(lbl) => setDraftLabel(lbl)}
           onSelectCustomPreset={handleSelectCustomPreset}
-          onTogglePickCustomCenter={() => setIsPickingCustomCenter((prev) => !prev)}
-          onDistributeCustomCameras={handleDistributeCustomCameras}
+          onResetDefaultOptics={handleResetDefaultOptics}
+          onPlotCameras={handlePlotCameras}
+          onSelectArea={handleSelectArea}
+          onRemoveArea={handleRemoveArea}
+          onRemoveAllAreas={handleRemoveAllAreas}
         />
 
         <main className="relative flex-1 min-w-0 h-full bg-slate-100">
@@ -699,23 +771,22 @@ export default function App() {
               apiKey={configuredApiKey}
               camera={camera}
               mapTypeId={googleMapTypeId}
-              selectedCityId={selectedCityId}
-              selectedSector={selectedSector}
+              areasOfInterest={areasOfInterest}
+              selectedAreaId={selectedAreaId}
               selectedCameraId={selectedCameraId}
               coverageConfig={coverageConfig}
               visibleCameras={visibleCameras}
               evaluatedEvents={evaluatedEvents}
               simulatorConfig={simulatorConfig}
-              planScope={planScope}
-              customAreaPlan={customAreaPlan}
-              customDraftArea={customDraftArea}
-              isPickingCustomCenter={isPickingCustomCenter}
+              drawingMode={drawingMode}
+              drawnPolygon={drawnPolygon}
+              draftPolygonVertices={draftPolygonVertices}
               onCameraChange={handleCameraChange}
               onCursorMove={setCursorPoint}
               onSelectCamera={handleSelectCamera}
-              onSelectCity={handleSelectCityPlan}
-              onSelectSector={handleSelectSector}
-              onPickCustomCenter={handlePickCustomCenterOnMap}
+              onSelectArea={handleSelectArea}
+              onCompletePolygon={handleCompletePolygon}
+              onAddDraftVertex={handleAddDraftVertex}
               onAuthError={handleGoogleAuthError}
             />
           ) : (
@@ -726,25 +797,24 @@ export default function App() {
               showLabels={showLabels}
               showTerrain={showTerrain}
               showGraticule={showGraticule}
-              selectedCityId={selectedCityId}
-              selectedSector={selectedSector}
+              areasOfInterest={areasOfInterest}
+              selectedAreaId={selectedAreaId}
               selectedCameraId={selectedCameraId}
               coverageConfig={coverageConfig}
               visibleCameras={visibleCameras}
               evaluatedEvents={evaluatedEvents}
               simulatorConfig={simulatorConfig}
               selectedCrossingEventId={selectedCrossingEventId}
-              planScope={planScope}
-              customAreaPlan={customAreaPlan}
-              customDraftArea={customDraftArea}
-              isPickingCustomCenter={isPickingCustomCenter}
+              drawingMode={drawingMode}
+              drawnPolygon={drawnPolygon}
+              draftPolygonVertices={draftPolygonVertices}
               onCameraChange={handleCameraChange}
               onCursorMove={setCursorPoint}
               onSelectCamera={handleSelectCamera}
-              onSelectCity={handleSelectCityPlan}
-              onSelectSector={handleSelectSector}
+              onSelectArea={handleSelectArea}
               onSelectCrossingEvent={handleFocusCrossingEvent}
-              onPickCustomCenter={handlePickCustomCenterOnMap}
+              onCompletePolygon={handleCompletePolygon}
+              onAddDraftVertex={handleAddDraftVertex}
             />
           )}
 
@@ -757,15 +827,15 @@ export default function App() {
             showMapLegend={showMapLegend}
             usingGoogleMaps={usingGoogleMaps}
             mobilePanelOpen={mobilePanelOpen}
-            selectedSector={selectedSector}
             selectedCamera={selectedCamera}
             coverageConfig={coverageConfig}
             visibleCameraCount={visibleCameras.length}
             simulationSummary={simulationSummary}
             simulatorConfig={simulatorConfig}
-            planScope={planScope}
-            customAreaPlan={customAreaPlan}
-            isPickingCustomCenter={isPickingCustomCenter}
+            areasOfInterest={areasOfInterest}
+            drawingMode={drawingMode}
+            drawnPolygon={drawnPolygon}
+            draftPolygonVertices={draftPolygonVertices}
             onModeChange={setMode}
             onToggleLabels={() => setShowLabels((prev) => !prev)}
             onToggleTerrain={() => setShowTerrain((prev) => !prev)}
@@ -775,8 +845,12 @@ export default function App() {
             onResetFinlandView={handleResetFinlandView}
             onToggleMobilePanel={() => setMobilePanelOpen((prev) => !prev)}
             onZoomToCamera={handleZoomToCamera}
+            onRemoveArea={handleRemoveArea}
             onCloseCameraCard={() => setSelectedCameraId(null)}
-            onCancelPickCustomCenter={() => setIsPickingCustomCenter(false)}
+            onSwitchDrawingMode={handleStartDrawing}
+            onFinishPolygonDraft={handleFinishPolygonDraft}
+            onUndoPolygonVertex={handleUndoPolygonVertex}
+            onCancelDrawing={handleCancelDrawing}
           />
         </main>
       </div>

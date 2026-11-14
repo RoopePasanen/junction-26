@@ -1,0 +1,29 @@
+{
+    "result": {
+        "bounding_boxes": [
+            {
+                "height": 473.6,
+                "label": "Warn",
+                "value": 0.6929599046707153,
+                "width": 409.6,
+                "x": 611.2,
+                "y": 448
+            }
+        ],
+        "resizeMode": "fit-shortest",
+        "resized": {
+            "originalWidth": 1024,
+            "originalHeight": 1024,
+            "newWidth": 320,
+            "newHeight": 320
+        }
+    },
+    "timing": {
+        "anomaly": 0,
+        "classification": 465,
+        "dsp": 3,
+        "json": 0,
+        "msg_handler": 468,
+        "stdin": 0
+    }
+}

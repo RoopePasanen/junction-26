@@ -1,0 +1,1202 @@
+[
+ {
+  "file": "no_animal/no_animal_headlightglare_night_001.jpg",
+  "cls": "no_animal",
+  "subjectName": "headlightglare",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: fallen trees and stumps at the forest edge. A strip of grassy road verge is visible along the bottom edge. Rain, wet leaves. Subject: bright car headlight glare entering from the side of the frame, lens flare and blown-out highlights across the trees. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_002.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Winter, snow on the ground and on the trees. Scene: a thicket of young birches and low bushes. Light fog. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_hiker_night_003.jpg",
+  "cls": "no_animal",
+  "subjectName": "hiker",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: a narrow forest path leading into spruce forest. Subject: a hiker with a backpack walking among the trees, partly turned away. The person is far away and small. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_skier_day_004.jpg",
+  "cls": "no_animal",
+  "subjectName": "skier",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Winter, snow on the ground and on the trees. Scene: a small clearing in pine forest. Subject: a cross-country skier gliding along a ski track among the trees. The person is far away and small. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_005.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Summer, green leaves and undergrowth. Scene: a thicket of young birches and low bushes. Light fog. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_dusk_006.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. Scene: a narrow forest path leading into spruce forest. Wind-blown snowy branches, slight motion blur. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_007.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: the edge of a field with spruce and birch forest behind. A strip of grassy road verge is visible along the bottom edge. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_008.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Winter, snow on the ground and on the trees. Scene: tall grass and ferns in front of spruce trees. Wind-blown snowy branches, slight motion blur. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_009.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Summer, green leaves and undergrowth. Scene: a narrow forest path leading into spruce forest. A strip of grassy road verge is visible along the bottom edge. Wind-blown branches, slight motion blur. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_signpost_day_010.jpg",
+  "cls": "no_animal",
+  "subjectName": "signpost",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Winter, snow on the ground and on the trees. Scene: fallen trees and stumps at the forest edge. A strip of grassy road verge is visible along the bottom edge. Subject: a roadside reflective marker post or a road sign post seen from behind, its reflector glowing brightly. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_dusk_011.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "dusk",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Autumn, yellow birch leaves and brown undergrowth. Scene: dense spruce forest edge with undergrowth. A strip of grassy road verge is visible along the bottom edge. Rain, wet leaves. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_012.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a shallow roadside ditch in the foreground with the forest behind it. Wind-blown snowy branches, slight motion blur. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_013.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: dense spruce forest edge with undergrowth. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_014.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: dense spruce forest edge with undergrowth. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_flashlight_night_015.jpg",
+  "cls": "no_animal",
+  "subjectName": "flashlight",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: a narrow forest path leading into spruce forest. Yellow birch leaves on the ground. Subject: a person walking at night holding a bright flashlight, the beam flaring in the camera. The person is partly hidden behind a tree trunk. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_016.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: the edge of a field with spruce and birch forest behind. A strip of grassy road verge is visible along the bottom edge. Wind-blown snowy branches, slight motion blur. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_hiker_day_017.jpg",
+  "cls": "no_animal",
+  "subjectName": "hiker",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Summer, green leaves and undergrowth. Scene: tall grass and ferns in front of spruce trees. Drizzle and mist. Subject: a hiker with a backpack walking among the trees, partly turned away. The person is partly hidden behind a tree trunk. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_jogger_day_018.jpg",
+  "cls": "no_animal",
+  "subjectName": "jogger",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Winter, snow on the ground and on the trees. Scene: mixed pine and birch forest edge. A strip of grassy road verge is visible along the bottom edge. Wind-blown snowy branches, slight motion blur. Subject: a jogger running along the forest edge, slightly motion blurred. The person is close to the camera. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_019.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: a narrow forest path leading into spruce forest. Yellow birch leaves on the ground. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_020.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Winter, snow on the ground and on the trees. Scene: a shallow roadside ditch in the foreground with the forest behind it. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_jogger_night_021.jpg",
+  "cls": "no_animal",
+  "subjectName": "jogger",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: tall grass and ferns in front of spruce trees. Wind-blown branches, slight motion blur. Subject: a jogger running along the forest edge, slightly motion blurred. The person is partly hidden behind a tree trunk. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_022.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Winter, snow on the ground and on the trees. Scene: dense spruce forest edge with undergrowth. Heavy falling snow. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_023.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: a thicket of young birches and low bushes. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_dusk_024.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. Scene: fallen trees and stumps at the forest edge. Wind-blown snowy branches, slight motion blur. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_025.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Summer, green leaves and undergrowth. Scene: a shallow roadside ditch in the foreground with the forest behind it. Light fog. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_skier_day_026.jpg",
+  "cls": "no_animal",
+  "subjectName": "skier",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: dense spruce forest edge with undergrowth. A strip of road verge is visible along the bottom edge. Subject: a cross-country skier gliding along a ski track among the trees. The person is partly hidden behind a tree trunk. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_berrypicker_day_027.jpg",
+  "cls": "no_animal",
+  "subjectName": "berrypicker",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: a small clearing in pine forest. Rain, wet leaves. Subject: a person crouching and picking berries with a bucket among the undergrowth. The person is at medium distance. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_berrypicker_night_028.jpg",
+  "cls": "no_animal",
+  "subjectName": "berrypicker",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: tall grass and ferns in front of spruce trees. A strip of road verge is visible along the bottom edge. Subject: a person crouching and picking berries with a bucket among the undergrowth. The person is close to the camera. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_029.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Summer, green leaves and undergrowth. Scene: a narrow forest path leading into spruce forest. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_030.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Winter, snow on the ground and on the trees. Scene: a thicket of young birches and low bushes. Heavy falling snow. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_031.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: mixed pine and birch forest edge. Yellow birch leaves on the ground. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_032.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Winter, snow on the ground and on the trees. Scene: a small clearing in pine forest. Light fog. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_hiker_night_033.jpg",
+  "cls": "no_animal",
+  "subjectName": "hiker",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: dense spruce forest edge with undergrowth. Subject: a hiker with a backpack walking among the trees, partly turned away. The person is partly hidden behind a tree trunk. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_034.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: tall grass and ferns in front of spruce trees. A strip of road verge is visible along the bottom edge. Wind-blown snowy branches, slight motion blur. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_035.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: the edge of a field with spruce and birch forest behind. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_036.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a thicket of young birches and low bushes. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_headlightglare_night_037.jpg",
+  "cls": "no_animal",
+  "subjectName": "headlightglare",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: mixed pine and birch forest edge. Drizzle and mist. Subject: bright car headlight glare entering from the side of the frame, lens flare and blown-out highlights across the trees. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_dusk_038.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. Scene: mixed pine and birch forest edge. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_039.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: dense spruce forest edge with undergrowth. Wind-blown branches, slight motion blur. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_hunter_day_040.jpg",
+  "cls": "no_animal",
+  "subjectName": "hunter",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Winter, snow on the ground and on the trees. Scene: a narrow forest path leading into spruce forest. Subject: a hunter in a blaze-orange vest and cap standing among the trees. The person is partly hidden behind a tree trunk. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_041.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: dense spruce forest edge with undergrowth. Rain, wet leaves. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_hunter_night_042.jpg",
+  "cls": "no_animal",
+  "subjectName": "hunter",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: tall grass and ferns in front of spruce trees. Heavy falling snow. Subject: a hunter in a blaze-orange vest and cap standing among the trees. The person is far away and small. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_dusk_043.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "dusk",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Autumn, yellow birch leaves and brown undergrowth. Scene: a shallow roadside ditch in the foreground with the forest behind it. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_passingcar_dusk_044.jpg",
+  "cls": "no_animal",
+  "subjectName": "passingcar",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. Scene: a small clearing in pine forest. Falling snow. Subject: the front or rear of a passing car only partly visible at the very edge of the frame, motion blurred. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_headlightglare_night_045.jpg",
+  "cls": "no_animal",
+  "subjectName": "headlightglare",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: fallen trees and stumps at the forest edge. Rain, wet leaves. Subject: bright car headlight glare entering from the side of the frame, lens flare and blown-out highlights across the trees. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_dusk_046.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: the edge of a field with spruce and birch forest behind. A strip of grassy road verge is visible along the bottom edge. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_047.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: fallen trees and stumps at the forest edge. A strip of road verge is visible along the bottom edge. Morning fog. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_dusk_048.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a narrow forest path leading into spruce forest. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_jogger_day_049.jpg",
+  "cls": "no_animal",
+  "subjectName": "jogger",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Summer, green leaves and undergrowth. Scene: fallen trees and stumps at the forest edge. Wind-blown branches, slight motion blur. Subject: a jogger running along the forest edge, slightly motion blurred. The person is far away and small. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_dusk_050.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: fallen trees and stumps at the forest edge. Falling snow. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_051.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: the edge of a field with spruce and birch forest behind. A strip of grassy road verge is visible along the bottom edge. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_052.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: tall grass and ferns in front of spruce trees. A strip of grassy road verge is visible along the bottom edge. Wind-blown snowy branches, slight motion blur. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_053.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Summer, green leaves and undergrowth. Scene: fallen trees and stumps at the forest edge. Light fog. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_054.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: a narrow forest path leading into spruce forest. A strip of road verge is visible along the bottom edge. Light fog. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_headlightglare_night_055.jpg",
+  "cls": "no_animal",
+  "subjectName": "headlightglare",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: a small clearing in pine forest. A strip of grassy road verge is visible along the bottom edge. Rain, wet leaves. Subject: bright car headlight glare entering from the side of the frame, lens flare and blown-out highlights across the trees. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_berrypicker_night_056.jpg",
+  "cls": "no_animal",
+  "subjectName": "berrypicker",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: tall grass and ferns in front of spruce trees. Subject: a person crouching and picking berries with a bucket among the undergrowth. The person is partly hidden behind a tree trunk. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_057.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Summer, green leaves and undergrowth. Scene: the edge of a field with spruce and birch forest behind. Wind-blown branches, slight motion blur. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_signpost_night_058.jpg",
+  "cls": "no_animal",
+  "subjectName": "signpost",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: tall grass and ferns in front of spruce trees. A strip of road verge is visible along the bottom edge. Wind-blown snowy branches, slight motion blur. Subject: a roadside reflective marker post or a road sign post seen from behind, its reflector glowing brightly. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_059.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: fallen trees and stumps at the forest edge. Yellow birch leaves on the ground. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_flashlight_night_060.jpg",
+  "cls": "no_animal",
+  "subjectName": "flashlight",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: a narrow forest path leading into spruce forest. A strip of road verge is visible along the bottom edge. Subject: a person walking at night holding a bright flashlight, the beam flaring in the camera. The person is partly hidden behind a tree trunk. There are NO animals and no birds anywhere in the image. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_signpost_day_061.jpg",
+  "cls": "no_animal",
+  "subjectName": "signpost",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Summer, green leaves and undergrowth. Scene: fallen trees and stumps at the forest edge. Light fog. Subject: a roadside reflective marker post or a road sign post seen from behind, its reflector glowing brightly. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_passingcar_night_062.jpg",
+  "cls": "no_animal",
+  "subjectName": "passingcar",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: tall grass and ferns in front of spruce trees. Falling snow. Subject: the front or rear of a passing car only partly visible at the very edge of the frame, motion blurred. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_passingcar_night_063.jpg",
+  "cls": "no_animal",
+  "subjectName": "passingcar",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: a narrow forest path leading into spruce forest. A strip of road verge is visible along the bottom edge. Rain, wet leaves. Subject: the front or rear of a passing car only partly visible at the very edge of the frame, motion blurred. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_dusk_064.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a narrow forest path leading into spruce forest. Heavy falling snow. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_065.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: a narrow forest path leading into spruce forest. Drizzle and mist. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_dusk_066.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. Scene: a shallow roadside ditch in the foreground with the forest behind it. A strip of road verge is visible along the bottom edge. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_067.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: tall grass and ferns in front of spruce trees. Yellow birch leaves on the ground. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_night_068.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a shallow roadside ditch in the foreground with the forest behind it. A strip of grassy road verge is visible along the bottom edge. Light fog. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_dusk_069.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "dusk",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Summer, green leaves and undergrowth. Scene: a small clearing in pine forest. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "no_animal/no_animal_emptyforest_day_070.jpg",
+  "cls": "no_animal",
+  "subjectName": "emptyforest",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Winter, snow on the ground and on the trees. Scene: a shallow roadside ditch in the foreground with the forest behind it. A strip of grassy road verge is visible along the bottom edge. Light fog. Subject: nothing, an empty forest view. There are NO animals and no birds anywhere in the image. No people. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_night_001.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: dense spruce forest edge with undergrowth. Morning fog. Subject: one moose (Eurasian elk), very large, dark brown, long legs, at medium distance, off-centre. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_night_002.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: tall grass and ferns in front of spruce trees. Subject: one roe deer, small and slender, grey-brown winter coat with a white rump patch, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_night_003.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: a thicket of young birches and low bushes. A strip of grassy road verge is visible along the bottom edge. Subject: two white-tailed deer in the dark, mostly only glowing eyeshine and a faint body outline visible, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_night_004.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: a shallow roadside ditch in the foreground with the forest behind it. Light fog. Subject: one moose (Eurasian elk), very large, dark brown, long legs, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_night_005.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: dense spruce forest edge with undergrowth. A strip of road verge is visible along the bottom edge. Wind-blown branches, slight motion blur. Subject: two moose in the dark, mostly only glowing eyeshine and a faint body outline visible, far away. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_night_006.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: a shallow roadside ditch in the foreground with the forest behind it. A strip of road verge is visible along the bottom edge. Falling snow. Subject: one roe deer, small and slender, grey-brown winter coat with a white rump patch, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_wildboar_day_007.jpg",
+  "cls": "warn_animal",
+  "subjectName": "wildboar",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Summer, green leaves and undergrowth. Scene: tall grass and ferns in front of spruce trees. A strip of grassy road verge is visible along the bottom edge. Subject: one wild boar, dark bristly coat, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_day_008.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a shallow roadside ditch in the foreground with the forest behind it. Wind-blown snowy branches, slight motion blur. Subject: one white-tailed deer in greyish-brown winter coat, white underside of the tail, partly hidden behind tree trunks and branches, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_day_009.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: tall grass and ferns in front of spruce trees. Subject: one white-tailed deer in reddish-brown coat, white underside of the tail, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_night_010.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: dense spruce forest edge with undergrowth. Heavy falling snow. Subject: one roe deer in the dark, mostly only glowing eyeshine and a faint body outline visible, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_wildboar_night_011.jpg",
+  "cls": "warn_animal",
+  "subjectName": "wildboar",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: a small clearing in pine forest. A strip of road verge is visible along the bottom edge. Light fog. Subject: 2 wild boars (wild boar, dark bristly coat) among the trees, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_day_012.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Winter, snow on the ground and on the trees. Scene: tall grass and ferns in front of spruce trees. Subject: 2 roe deer (roe deer, small and slender, grey-brown winter coat with a white rump patch) among the trees, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_night_013.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: a shallow roadside ditch in the foreground with the forest behind it. Rain, wet leaves. Subject: one white-tailed deer in reddish-brown coat, white underside of the tail, at medium distance, off-centre. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_day_014.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Winter, snow on the ground and on the trees. Scene: a shallow roadside ditch in the foreground with the forest behind it. Subject: one moose (Eurasian elk), very large, dark brown, long legs, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_dusk_015.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "dusk",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Summer, green leaves and undergrowth. Scene: tall grass and ferns in front of spruce trees. Light fog. Subject: one moose (Eurasian elk), very large, dark brown, long legs, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_dusk_016.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a narrow forest path leading into spruce forest. A strip of grassy road verge is visible along the bottom edge. Falling snow. Subject: one white-tailed deer in greyish-brown winter coat, white underside of the tail, partly hidden behind tree trunks and branches, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_night_017.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: a thicket of young birches and low bushes. Rain, wet leaves. Subject: one roe deer, small and slender, reddish-brown summer coat with a white rump patch, partly hidden behind tree trunks and branches, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_dusk_018.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. Scene: dense spruce forest edge with undergrowth. Heavy falling snow. Subject: one moose (Eurasian elk), very large, dark brown, long legs, partly hidden behind tree trunks and branches, at medium distance, off-centre. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_day_019.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Summer, green leaves and undergrowth. Scene: the edge of a field with spruce and birch forest behind. Wind-blown branches, slight motion blur. Subject: one roe deer, small and slender, reddish-brown summer coat with a white rump patch, at medium distance, off-centre. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_night_020.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a shallow roadside ditch in the foreground with the forest behind it. Light fog. Subject: 2 moose (moose (Eurasian elk), very large, dark brown, long legs) among the trees, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_day_021.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: a narrow forest path leading into spruce forest. Subject: one roe deer, small and slender, reddish-brown summer coat with a white rump patch, partly hidden behind tree trunks and branches, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_dusk_022.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. Scene: dense spruce forest edge with undergrowth. Subject: one moose (Eurasian elk), very large, dark brown, long legs, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_day_023.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Summer, green leaves and undergrowth. Scene: mixed pine and birch forest edge. Drizzle and mist. Subject: one white-tailed deer in reddish-brown coat, white underside of the tail, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_day_024.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Winter, snow on the ground and on the trees. Scene: dense spruce forest edge with undergrowth. Wind-blown snowy branches, slight motion blur. Subject: 2 roe deer (roe deer, small and slender, grey-brown winter coat with a white rump patch) among the trees, at medium distance, off-centre. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_day_025.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: a shallow roadside ditch in the foreground with the forest behind it. Yellow birch leaves on the ground. Subject: 3 white-tailed deer (white-tailed deer in reddish-brown coat, white underside of the tail) among the trees, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_dusk_026.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a narrow forest path leading into spruce forest. Wind-blown snowy branches, slight motion blur. Subject: one roe deer, small and slender, grey-brown winter coat with a white rump patch, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_dusk_027.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "dusk",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Summer, green leaves and undergrowth. Scene: tall grass and ferns in front of spruce trees. Subject: 2 moose (moose (Eurasian elk), very large, dark brown, long legs) among the trees, at medium distance, off-centre. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_night_028.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: dense spruce forest edge with undergrowth. A strip of road verge is visible along the bottom edge. Falling snow. Subject: one roe deer, small and slender, grey-brown winter coat with a white rump patch, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_day_029.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: a shallow roadside ditch in the foreground with the forest behind it. A strip of grassy road verge is visible along the bottom edge. Subject: 3 white-tailed deer (white-tailed deer in reddish-brown coat, white underside of the tail) among the trees, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_night_030.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: fallen trees and stumps at the forest edge. Light fog. Subject: one roe deer, small and slender, grey-brown winter coat with a white rump patch, at medium distance, off-centre. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_dusk_031.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "dusk",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Summer, green leaves and undergrowth. Scene: a small clearing in pine forest. Subject: one white-tailed deer in reddish-brown coat, white underside of the tail, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_night_032.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: fallen trees and stumps at the forest edge. Falling snow. Subject: one roe deer, small and slender, grey-brown winter coat with a white rump patch, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_night_033.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: dense spruce forest edge with undergrowth. A strip of grassy road verge is visible along the bottom edge. Wind-blown branches, slight motion blur. Subject: 3 white-tailed deer (white-tailed deer in reddish-brown coat, white underside of the tail) among the trees, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_dusk_034.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: fallen trees and stumps at the forest edge. A strip of road verge is visible along the bottom edge. Heavy falling snow. Subject: one white-tailed deer in greyish-brown winter coat, white underside of the tail, at medium distance, off-centre. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_day_035.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Summer, green leaves and undergrowth. Scene: mixed pine and birch forest edge. Light fog. Subject: one roe deer, small and slender, reddish-brown summer coat with a white rump patch, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_night_036.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: a narrow forest path leading into spruce forest. Falling snow. Subject: 2 roe deer (roe deer, small and slender, grey-brown winter coat with a white rump patch) among the trees, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_day_037.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: tall grass and ferns in front of spruce trees. A strip of road verge is visible along the bottom edge. Subject: one white-tailed deer in reddish-brown coat, white underside of the tail, partly hidden behind tree trunks and branches, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_night_038.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: the edge of a field with spruce and birch forest behind. Subject: one moose in the dark, mostly only glowing eyeshine and a faint body outline visible, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_day_039.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Summer, green leaves and undergrowth. Scene: mixed pine and birch forest edge. A strip of grassy road verge is visible along the bottom edge. Subject: one white-tailed deer in reddish-brown coat, white underside of the tail, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_night_040.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: a thicket of young birches and low bushes. Falling snow. Subject: one moose (Eurasian elk), very large, dark brown, long legs, partly hidden behind tree trunks and branches, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_moose_day_041.jpg",
+  "cls": "warn_animal",
+  "subjectName": "moose",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: the edge of a field with spruce and birch forest behind. A strip of grassy road verge is visible along the bottom edge. Subject: one moose (Eurasian elk), very large, dark brown, long legs, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_roedeer_night_042.jpg",
+  "cls": "warn_animal",
+  "subjectName": "roedeer",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: the edge of a field with spruce and birch forest behind. Light fog. Subject: two roe deer in the dark, mostly only glowing eyeshine and a faint body outline visible, far away. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_night_043.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: mixed pine and birch forest edge. A strip of road verge is visible along the bottom edge. Wind-blown branches, slight motion blur. Subject: one white-tailed deer in reddish-brown coat, white underside of the tail, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_wildboar_night_044.jpg",
+  "cls": "warn_animal",
+  "subjectName": "wildboar",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a shallow roadside ditch in the foreground with the forest behind it. A strip of grassy road verge is visible along the bottom edge. Subject: one wild boar, dark bristly coat, partly hidden behind tree trunks and branches, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_wildboar_day_045.jpg",
+  "cls": "warn_animal",
+  "subjectName": "wildboar",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: dense spruce forest edge with undergrowth. A strip of grassy road verge is visible along the bottom edge. Yellow birch leaves on the ground. Subject: one wild boar, dark bristly coat, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_day_046.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Winter, snow on the ground and on the trees. Scene: dense spruce forest edge with undergrowth. A strip of grassy road verge is visible along the bottom edge. Subject: one white-tailed deer in greyish-brown winter coat, white underside of the tail, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_wildboar_day_047.jpg",
+  "cls": "warn_animal",
+  "subjectName": "wildboar",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Summer, green leaves and undergrowth. Scene: mixed pine and birch forest edge. Wind-blown branches, slight motion blur. Subject: one wild boar, dark bristly coat, close to the camera, but cut off by the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_dusk_048.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. Scene: the edge of a field with spruce and birch forest behind. Wind-blown snowy branches, slight motion blur. Subject: one white-tailed deer in greyish-brown winter coat, white underside of the tail, far away and small in the frame. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_night_049.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: dense spruce forest edge with undergrowth. Subject: two white-tailed deer in the dark, mostly only glowing eyeshine and a faint body outline visible, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "warn_animal/warn_animal_whitetaileddeer_night_050.jpg",
+  "cls": "warn_animal",
+  "subjectName": "whitetaileddeer",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: tall grass and ferns in front of spruce trees. Subject: one white-tailed deer in the dark, mostly only glowing eyeshine and a faint body outline visible, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_badger_day_001.jpg",
+  "cls": "small_animal",
+  "subjectName": "badger",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: tall grass and ferns in front of spruce trees. Subject: a European badger with black and white striped face, only one animal, near the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_badger_night_002.jpg",
+  "cls": "small_animal",
+  "subjectName": "badger",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: a narrow forest path leading into spruce forest. Yellow birch leaves on the ground. Subject: a European badger with black and white striped face, only one animal, near the image edge, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_badger_night_003.jpg",
+  "cls": "small_animal",
+  "subjectName": "badger",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: a small clearing in pine forest. A strip of road verge is visible along the bottom edge. Drizzle and mist. Subject: a European badger with black and white striped face, only one animal, at medium distance, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_hare_day_004.jpg",
+  "cls": "small_animal",
+  "subjectName": "hare",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: a small clearing in pine forest. A strip of road verge is visible along the bottom edge. Morning fog. Subject: a brown hare in summer coat, only one animal, partly hidden in undergrowth. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_hare_day_005.jpg",
+  "cls": "small_animal",
+  "subjectName": "hare",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a shallow roadside ditch in the foreground with the forest behind it. Light fog. Subject: a mountain hare in white winter coat, only one animal, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_day_006.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Summer, green leaves and undergrowth. Scene: the edge of a field with spruce and birch forest behind. Wind-blown branches, slight motion blur. Subject: a red fox, only one animal, partly hidden in undergrowth. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_night_007.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: the edge of a field with spruce and birch forest behind. Wind-blown snowy branches, slight motion blur. Subject: a red fox, only one animal, far away and small, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_day_008.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: fallen trees and stumps at the forest edge. Morning fog. Subject: a red fox, only one animal, far away and small. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_badger_day_009.jpg",
+  "cls": "small_animal",
+  "subjectName": "badger",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: dense spruce forest edge with undergrowth. A strip of grassy road verge is visible along the bottom edge. Yellow birch leaves on the ground. Subject: a European badger with black and white striped face, only one animal, close to the camera. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_badger_dusk_010.jpg",
+  "cls": "small_animal",
+  "subjectName": "badger",
+  "light": "dusk",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Autumn, yellow birch leaves and brown undergrowth. Scene: tall grass and ferns in front of spruce trees. A strip of road verge is visible along the bottom edge. Subject: a European badger with black and white striped face, only one animal, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_dusk_011.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: a thicket of young birches and low bushes. A strip of grassy road verge is visible along the bottom edge. Heavy falling snow. Subject: a red fox, only one animal, partly hidden in undergrowth. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_badger_night_012.jpg",
+  "cls": "small_animal",
+  "subjectName": "badger",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: a thicket of young birches and low bushes. A strip of road verge is visible along the bottom edge. Wind-blown branches, slight motion blur. Subject: a European badger with black and white striped face, only one animal, near the image edge, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_hare_dusk_013.jpg",
+  "cls": "small_animal",
+  "subjectName": "hare",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. Scene: a small clearing in pine forest. A strip of grassy road verge is visible along the bottom edge. Subject: a mountain hare in white winter coat, only one animal, close to the camera. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_dusk_014.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "dusk",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dawn, dim bluish light, muted colours, grainy and soft. Summer, green leaves and undergrowth. Scene: dense spruce forest edge with undergrowth. Subject: a red fox, only one animal, near the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_hare_night_015.jpg",
+  "cls": "small_animal",
+  "subjectName": "hare",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: mixed pine and birch forest edge. A strip of grassy road verge is visible along the bottom edge. Subject: a mountain hare in white winter coat, only one animal, far away and small, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_badger_night_016.jpg",
+  "cls": "small_animal",
+  "subjectName": "badger",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: mixed pine and birch forest edge. Rain, wet leaves. Subject: a European badger with black and white striped face, only one animal, at medium distance, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_badger_day_017.jpg",
+  "cls": "small_animal",
+  "subjectName": "badger",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Summer, green leaves and undergrowth. Scene: a small clearing in pine forest. A strip of road verge is visible along the bottom edge. Drizzle and mist. Subject: a European badger with black and white striped face, only one animal, close to the camera. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_hare_day_018.jpg",
+  "cls": "small_animal",
+  "subjectName": "hare",
+  "light": "day",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, grey dull light, natural colours. Summer, green leaves and undergrowth. Scene: mixed pine and birch forest edge. Subject: a brown hare in summer coat, only one animal, partly hidden in undergrowth. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_night_019.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: fallen trees and stumps at the forest edge. Heavy falling snow. Subject: a red fox, only one animal, near the image edge, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_hare_day_020.jpg",
+  "cls": "small_animal",
+  "subjectName": "hare",
+  "light": "day",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Autumn, yellow birch leaves and brown undergrowth. Scene: the edge of a field with spruce and birch forest behind. Rain, wet leaves. Subject: a brown hare in summer coat, only one animal, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_day_021.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, low sun with long shadows, natural colours. Winter, snow on the ground and on the trees. A plowed snow bank along the bottom edge. Scene: fallen trees and stumps at the forest edge. A strip of road verge is visible along the bottom edge. Subject: a red fox, only one animal, near the image edge. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_hare_night_022.jpg",
+  "cls": "small_animal",
+  "subjectName": "hare",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: mixed pine and birch forest edge. Drizzle and mist. Subject: a brown hare in summer coat, only one animal, at medium distance, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_hare_day_023.jpg",
+  "cls": "small_animal",
+  "subjectName": "hare",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Winter, snow on the ground and on the trees. Scene: the edge of a field with spruce and birch forest behind. Heavy falling snow. Subject: a mountain hare in white winter coat, only one animal, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_dusk_024.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "dusk",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Autumn, yellow birch leaves and brown undergrowth. Scene: tall grass and ferns in front of spruce trees. Subject: a red fox, only one animal, at medium distance. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_dusk_025.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "dusk",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Dusk, low light, muted colours, grainy and soft. Winter, snow on the ground and on the trees. Scene: tall grass and ferns in front of spruce trees. Wind-blown snowy branches, slight motion blur. Subject: a red fox, only one animal, partly hidden in undergrowth. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_hare_night_026.jpg",
+  "cls": "small_animal",
+  "subjectName": "hare",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: fallen trees and stumps at the forest edge. Subject: a brown hare in summer coat, only one animal, near the image edge, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_night_027.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "night",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Winter, snow on the ground and on the trees. Scene: mixed pine and birch forest edge. A strip of grassy road verge is visible along the bottom edge. Light fog. Subject: a red fox, only one animal, close to the camera, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_hare_night_028.jpg",
+  "cls": "small_animal",
+  "subjectName": "hare",
+  "light": "night",
+  "season": "autumn",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Autumn, yellow birch leaves and brown undergrowth. Scene: a small clearing in pine forest. Subject: a brown hare in summer coat, only one animal, at medium distance, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_day_029.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "day",
+  "season": "winter",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Daylight, overcast sky, flat natural colours. Winter, snow on the ground and on the trees. Scene: fallen trees and stumps at the forest edge. Light fog. Subject: a red fox, only one animal, close to the camera. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ },
+ {
+  "file": "small_animal/small_animal_redfox_night_030.jpg",
+  "cls": "small_animal",
+  "subjectName": "redfox",
+  "light": "night",
+  "season": "summer",
+  "prompt": "Generate an image (square 1:1). A still frame from a fixed trail camera mounted about 2 m high at the edge of a road in Finland, pointing into the forest beside the road. Night, black-and-white infrared trail-camera image, harsh IR flash lighting the foreground and falling off into black behind. Summer, green leaves and undergrowth. Scene: mixed pine and birch forest edge. A strip of road verge is visible along the bottom edge. Subject: a red fox, only one animal, at medium distance, eyes glowing in the IR light. Camera-trap look, not a nice wildlife photo: slightly low quality, some blur, sensor noise, JPEG compression, slightly wide-angle lens. The road surface is not visible. The image is the view seen THROUGH the camera: do not show any camera, trail camera box or device anywhere in the image. No text, no timestamps, no date overlay, no watermark, no logo, no border."
+ }
+]

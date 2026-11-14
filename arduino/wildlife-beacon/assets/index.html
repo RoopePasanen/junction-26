@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wildlife Beacon</title>
+<style>
+  :root { --bg:#111; --fg:#eee; --muted:#999; --warn:#f5a623; --ok:#3fb950; --bar:#2a2a2a; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  p { color:var(--muted); margin:0 0 12px; font-size:14px; }
+  img { width:100%; border-radius:8px; background:#000; display:block; aspect-ratio:4/3; object-fit:contain; }
+  #beacon { margin:12px 0; padding:14px; border-radius:8px; font-weight:700; font-size:20px; text-align:center;
+            background:#1d2a1f; color:var(--ok); border:2px solid #24452a; }
+  #beacon.on { background:#3a2a0a; color:var(--warn); border-color:var(--warn); animation:blink .5s steps(1) infinite; }
+  @keyframes blink { 50% { background:#111; } }
+  #meta { color:var(--muted); font-size:13px; margin-top:10px; }
+  #upload { display:block; margin:16px 0 0; padding:14px; border:2px dashed #444; border-radius:8px; text-align:center; cursor:pointer; }
+  #upload.drag { border-color:#4c8dff; background:#16202f; }
+  #upload b { color:var(--fg); }
+  #upload input { display:none; }
+  #answer { margin-top:8px; font-size:15px; min-height:1.3em; }
+  #answer.warn { color:var(--warn); font-weight:700; }
+  #answer.err { color:#ff6b6b; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🚨 Wildlife Beacon: live view</h1>
+  <p>What the camera sees, with the animals the UNO Q boxed. Pictures are never saved.</p>
+  <img src="/stream" alt="Camera view">
+  <div id="beacon">Beacon off</div>
+  <div id="meta">Waiting for the board…</div>
+  <label id="upload">
+    <input type="file" id="file" accept="image/*">
+    <b>📷 Show the board a photo</b><br>
+    <span style="color:var(--muted);font-size:14px">Click or drop a JPG/PNG. The model boxes the animals as if the camera saw it.</span>
+    <div id="answer"></div>
+  </label>
+</main>
+<script>
+// The boxes on the picture show what the model found; this names the result in words.
+const NAMES = { warn_animal: "Warn (deer / moose)", small_animal: "Small animal", no_animal: "No animal" };
+const beacon = document.getElementById("beacon");
+const meta = document.getElementById("meta");
+function render(s) {
+  beacon.classList.toggle("on", s.beacon);
+  beacon.textContent = s.beacon ? "⚠️ BEACON ON: animal on the road" : "Beacon off";
+  const hits = s.recent.filter(Boolean).length;
+  const dash = s.dashboard ? ` · dashboard: ${s.unsent ? s.unsent + " unsent" : "ok"}` : " · dashboard: not set";
+  meta.textContent = `Source: ${s.source}${s.camera ? "" : " (no camera)"} · sure warn frames: ${hits} of last ${s.recent.length} (need ${s.needed} of ${s.window} at ≥${Math.round(s.min_confidence * 100)}%)${dash}`;
+}
+const drop = document.getElementById("upload");
+const fileInput = document.getElementById("file");
+const answer = document.getElementById("answer");
+async function sendPhoto(file) {
+  if (!file) return;
+  answer.className = ""; answer.textContent = `Checking ${file.name}…`;
+  try {
+    // Always send a Content-Type, so the board reads the body as raw image bytes.
+    const r = await fetch("/upload", { method: "POST", body: file,
+      headers: { "Content-Type": file.type || "application/octet-stream" } });
+    const a = await r.json();
+    if (!r.ok || a.error) throw new Error(a.error || a.detail || r.statusText);
+    answer.className = a.beacon ? "warn" : "";
+    answer.textContent = (a.label === "no_animal" ? "No animal found" : `${NAMES[a.label]} ${Math.round(a.conf * 100)}%`) +
+      (a.beacon ? " → beacon on!" : a.label === "warn_animal" ? ` (below ${Math.round(a.min_confidence * 100)}%, no beacon)` : "");
+  } catch (e) {
+    answer.className = "err"; answer.textContent = `Upload failed: ${e.message}`;
+  }
+  fileInput.value = "";
+}
+fileInput.addEventListener("change", () => sendPhoto(fileInput.files[0]));
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("drag"); sendPhoto(e.dataTransfer.files[0]); });
+
+setInterval(() => fetch("/status").then(r => r.json()).then(render).catch(() => { meta.textContent = "Board not reachable"; }), 500);
+</script>
+</body>
+</html>

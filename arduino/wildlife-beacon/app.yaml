@@ -1,0 +1,10 @@
+name: wildlife-beacon
+description: Beacon logic for the roadside unit (PLAN.md, step A5).
+ports: []
+bricks:
+# Aarne's Edge Impulse object detection model (project 1164426, impulse "SmallOrWarn",
+# classes Small / Warn), installed on the board under ~/.arduino-bricks/models/custom-ei/.
+- arduino:object_detection:
+    model: ei-model-1164426-3
+- arduino:web_ui
+icon: 🚨

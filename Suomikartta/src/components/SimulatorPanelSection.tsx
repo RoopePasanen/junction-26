@@ -1,10 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Download, FileSpreadsheet, Play, Trash2, Upload } from 'lucide-react';
-import {
-  SECTOR_IDS,
-  SECTOR_ROTATION_SCHEDULE,
-  type SectorFilter,
-} from '../data/finlandWildlifePlan';
+import { Download, FileSpreadsheet, MapPin, Play, Trash2, Upload } from 'lucide-react';
 import {
   MAX_CAMERA_FOV_DEG,
   MAX_CAMERA_RANGE_M,
@@ -15,16 +10,15 @@ import {
 import {
   buildEvaluatedResultsWorkbook,
   buildSampleTemplateWorkbook,
-  CAMERA_ARRANGEMENTS,
   parseCrossingSpreadsheetBuffer,
+  SMALL_ANIMAL_RANGE_FACTOR,
   type AnimalSizeCategory,
-  type CameraArrangementId,
   type CrossingEvent,
   type EvaluatedCrossingEvent,
   type SimulationSummary,
   type SimulatorConfig,
 } from '../utils/crossingSimulator';
-import type { CustomAreaPlanResult, PlanScopeMode } from '../types/customAreaPlan';
+import type { CustomAreaPlanResult } from '../types/customAreaPlan';
 
 interface SimulatorPanelSectionProps {
   datasetName: string | null;
@@ -33,17 +27,15 @@ interface SimulatorPanelSectionProps {
   simulationSummary: SimulationSummary;
   simulatorConfig: SimulatorConfig;
   coverageConfig: CameraCoverageConfig;
-  selectedSector: SectorFilter;
   selectedEventId: string | null;
-  planScope?: PlanScopeMode;
-  customAreaPlan?: CustomAreaPlanResult | null;
+  areasOfInterest: CustomAreaPlanResult[];
   onLoadEvents: (events: CrossingEvent[], sourceLabel: string) => void;
   onLoadDemoDataset: () => void;
   onClearDataset: () => void;
-  onSelectSector: (sector: SectorFilter) => void;
   onUpdateSimulatorConfig: (patch: Partial<SimulatorConfig>) => void;
   onUpdateCoverageConfig: (patch: Partial<CameraCoverageConfig>) => void;
   onFocusCrossingEvent: (event: EvaluatedCrossingEvent) => void;
+  onSwitchToPlanAndDraw: () => void;
 }
 
 export function SimulatorPanelSection({
@@ -53,17 +45,15 @@ export function SimulatorPanelSection({
   simulationSummary,
   simulatorConfig,
   coverageConfig,
-  selectedSector,
   selectedEventId,
-  planScope = 'top5',
-  customAreaPlan = null,
+  areasOfInterest,
   onLoadEvents,
   onLoadDemoDataset,
   onClearDataset,
-  onSelectSector,
   onUpdateSimulatorConfig,
   onUpdateCoverageConfig,
   onFocusCrossingEvent,
+  onSwitchToPlanAndDraw,
 }: SimulatorPanelSectionProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -71,11 +61,17 @@ export function SimulatorPanelSection({
   const [eventStatusFilter, setEventStatusFilter] = useState<'all' | 'detected' | 'missed'>('all');
   const [showAllEvents, setShowAllEvents] = useState<boolean>(false);
 
-  const activeArrangement = useMemo(
+  const totalRoadUnits = useMemo(
+    () => areasOfInterest.reduce((sum, area) => sum + area.cameras.length, 0),
+    [areasOfInterest]
+  );
+
+  const totalAreaKm2 = useMemo(
     () =>
-      CAMERA_ARRANGEMENTS.find((a) => a.id === simulatorConfig.arrangementId) ??
-      CAMERA_ARRANGEMENTS[0],
-    [simulatorConfig.arrangementId]
+      Number(
+        areasOfInterest.reduce((sum, area) => sum + area.areaKm2, 0).toFixed(1)
+      ),
+    [areasOfInterest]
   );
 
   const visibleLogEvents = useMemo(() => {
@@ -120,7 +116,7 @@ export function SimulatorPanelSection({
   };
 
   const handleDownloadTemplate = () => {
-    const bytes = buildSampleTemplateWorkbook();
+    const bytes = buildSampleTemplateWorkbook(areasOfInterest);
     const blob = new Blob([bytes], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
@@ -134,11 +130,14 @@ export function SimulatorPanelSection({
     URL.revokeObjectURL(url);
   };
 
-  const isCustomScope = planScope === 'custom';
-  const arrangementExportLabel =
-    isCustomScope && customAreaPlan
-      ? `Custom 100 Road Cameras (${customAreaPlan.label} · ${customAreaPlan.radiusKm} km)`
-      : activeArrangement.label;
+  const arrangementExportLabel = useMemo(() => {
+    if (areasOfInterest.length === 0) return 'No Areas of Interest';
+    if (areasOfInterest.length === 1) {
+      const a = areasOfInterest[0];
+      return `${a.cameras.length} Road Cameras (${a.label} · ${a.areaKm2} km²)`;
+    }
+    return `${totalRoadUnits} Road Cameras across ${areasOfInterest.length} Areas (${totalAreaKm2} km²)`;
+  }, [areasOfInterest, totalAreaKm2, totalRoadUnits]);
 
   const handleExportResults = () => {
     if (evaluatedEvents.length === 0) return;
@@ -156,15 +155,14 @@ export function SimulatorPanelSection({
     anchor.href = url;
     const yearSuffix =
       simulatorConfig.selectedYear === 'all' ? 'all-years' : String(simulatorConfig.selectedYear);
-    const scopeSlug = isCustomScope ? 'custom-radius' : simulatorConfig.arrangementId;
-    anchor.download = `crossing-simulation-${yearSuffix}-${scopeSlug}-${coverageConfig.rangeMeters}m.xlsx`;
+    anchor.download = `crossing-simulation-${yearSuffix}-areas-of-interest-${coverageConfig.rangeMeters}m.xlsx`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
     URL.revokeObjectURL(url);
   };
 
-  const totalInCoveredCitiesAllYears =
+  const totalInCoveredAreasAllYears =
     rawEventCount - simulationSummary.excludedOutsideCitiesCount;
 
   return (
@@ -196,7 +194,8 @@ export function SimulatorPanelSection({
           <span className="font-mono text-slate-800">date</span>,{' '}
           <span className="font-mono text-slate-800">latitude</span>,{' '}
           <span className="font-mono text-slate-800">longitude</span>, and{' '}
-          <span className="font-mono text-slate-800">animal_size</span> (small / large).
+          <span className="font-mono text-slate-800">animal_size</span> (small / large). Each
+          spot beside a road is projected straight through the closest road at normal incidence.
         </p>
 
         <div className="mt-3 space-y-2">
@@ -219,12 +218,13 @@ export function SimulatorPanelSection({
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
+              disabled={areasOfInterest.length === 0}
               onClick={() => {
                 setUploadError(null);
                 setSkippedNotice(0);
                 onLoadDemoDataset();
               }}
-              className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-50 whitespace-nowrap"
+              className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
             >
               <Play className="h-3.5 w-3.5 text-sky-800" aria-hidden="true" />
               <span>Load Demo (3 yrs)</span>
@@ -255,17 +255,15 @@ export function SimulatorPanelSection({
                 data-testid="sim-covered-scope"
                 className="font-mono tabular-nums text-slate-700 whitespace-nowrap shrink-0"
               >
-                {isCustomScope && customAreaPlan
-                  ? `${totalInCoveredCitiesAllYears.toLocaleString()} in ${customAreaPlan.radiusKm} km`
-                  : `${totalInCoveredCitiesAllYears.toLocaleString()} in 5 cities`}
+                {`${totalInCoveredAreasAllYears.toLocaleString()} in ${areasOfInterest.length} ${
+                  areasOfInterest.length === 1 ? 'area' : 'areas'
+                }`}
               </span>
             </div>
             {(simulationSummary.excludedOutsideCitiesCount > 0 || skippedNotice > 0) && (
               <div className="font-mono text-[10.5px] tabular-nums text-slate-500">
                 {simulationSummary.excludedOutsideCitiesCount > 0
-                  ? isCustomScope
-                    ? `${simulationSummary.excludedOutsideCitiesCount.toLocaleString()} outside radius excluded`
-                    : `${simulationSummary.excludedOutsideCitiesCount.toLocaleString()} outside camera cities excluded`
+                  ? `${simulationSummary.excludedOutsideCitiesCount.toLocaleString()} outside areas of interest excluded`
                   : ''}
                 {simulationSummary.excludedOutsideCitiesCount > 0 && skippedNotice > 0
                   ? ' · '
@@ -277,7 +275,7 @@ export function SimulatorPanelSection({
         )}
       </section>
 
-      {/* Section 2: Year Selector, Heatmap Results & Sector Rotation */}
+      {/* Section 2: Year Selector & Detected vs. Missed Heatmap */}
       <section className="p-4">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold text-slate-950">Detected vs. Missed Heatmap</h2>
@@ -291,30 +289,42 @@ export function SimulatorPanelSection({
           )}
         </div>
 
-        {isCustomScope && !customAreaPlan ? (
-          <p className="mt-1.5 text-xs leading-relaxed text-amber-800">
-            Open the Plan tab and click &ldquo;Distribute 100 Cameras&rdquo; to deploy cameras in
-            your custom radius before running simulations.
-          </p>
+        {areasOfInterest.length === 0 ? (
+          <div className="mt-2 space-y-2.5">
+            <p className="text-xs leading-relaxed text-slate-600">
+              No areas of interest have been added yet. Add at least one area of interest on the
+              map to evaluate crossing detections.
+            </p>
+            <button
+              type="button"
+              onClick={onSwitchToPlanAndDraw}
+              className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 whitespace-nowrap"
+            >
+              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Draw Area of Interest</span>
+            </button>
+          </div>
         ) : rawEventCount === 0 ? (
           <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-            {isCustomScope && customAreaPlan
-              ? `Upload your Excel crossing sheet or load demo events inside ${customAreaPlan.label} (${customAreaPlan.radiusKm} km radius).`
-              : 'Upload your Excel crossing sheet or load the 3-year demo dataset above. Each 1-year mapping cycle rotates 100 cameras/city across 5 sectors (73 days per sector).'}
+            Upload your Excel crossing sheet or load synthetic 3-year crossings across your{' '}
+            {areasOfInterest.length}{' '}
+            {areasOfInterest.length === 1 ? 'area of interest' : 'areas of interest'} (
+            {totalAreaKm2} km²).
           </p>
-        ) : totalInCoveredCitiesAllYears === 0 ? (
+        ) : totalInCoveredAreasAllYears === 0 ? (
           <p role="status" className="mt-2 text-xs leading-relaxed text-amber-800">
-            {isCustomScope && customAreaPlan
-              ? `0 of ${rawEventCount.toLocaleString()} uploaded events fall within ${customAreaPlan.radiusKm} km of ${customAreaPlan.label}.`
-              : `0 of ${rawEventCount.toLocaleString()} uploaded events fall within the 5 camera-covered cities (Salo, Raasepori, Pori, Hämeenlinna, Sastamala).`}
+            0 of {rawEventCount.toLocaleString()} uploaded events fall inside your{' '}
+            {areasOfInterest.length} active{' '}
+            {areasOfInterest.length === 1 ? 'area of interest' : 'areas of interest'} (
+            {totalAreaKm2} km²).
           </p>
         ) : (
           <>
-            {/* Year Selector for 1-Year Mapping Cycle */}
+            {/* Year Selector */}
             {simulationSummary.availableYears.length > 0 && (
               <div className="mt-2.5">
                 <div className="flex items-baseline justify-between gap-2 text-[11px]">
-                  <span className="font-medium text-slate-700">Mapping Year (1-yr cycle)</span>
+                  <span className="font-medium text-slate-700">Simulation Year</span>
                   <span className="font-mono tabular-nums text-slate-500">
                     {simulationSummary.coveredEventsInSelectedYear.toLocaleString()} area events
                   </span>
@@ -382,7 +392,7 @@ export function SimulatorPanelSection({
                   >
                     {simulationSummary.availableYears.map((yr) => (
                       <option key={yr} value={String(yr)}>
-                        {yr} (1-year mapping cycle)
+                        {yr}
                       </option>
                     ))}
                     <option value="all">All Years Combined</option>
@@ -421,77 +431,19 @@ export function SimulatorPanelSection({
               </div>
             </dl>
 
-            <div className="mt-2 space-y-1 text-[11px] font-mono tabular-nums text-slate-600">
-              <div className="flex flex-wrap items-center gap-x-2">
-                <span>
-                  Large: {simulationSummary.largeDetected}/{simulationSummary.largeTotal} (
-                  {simulationSummary.largeRatePct.toFixed(0)}%)
-                </span>
-                <span aria-hidden="true" className="text-slate-300">
-                  ·
-                </span>
-                <span>
-                  Small: {simulationSummary.smallDetected}/{simulationSummary.smallTotal} (
-                  {simulationSummary.smallRatePct.toFixed(0)}%)
-                </span>
-              </div>
-              {!isCustomScope && activeArrangement.isRotational && (
-                <div className="text-[10.5px] text-slate-500">
-                  In active 73-d sector: {simulationSummary.inActiveSectorEventsCount} · Other 4
-                  sectors: {simulationSummary.outOfWindowEventsCount}
-                </div>
-              )}
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 text-[11px] font-mono tabular-nums text-slate-600">
+              <span>
+                Large: {simulationSummary.largeDetected}/{simulationSummary.largeTotal} (
+                {simulationSummary.largeRatePct.toFixed(0)}%)
+              </span>
+              <span aria-hidden="true" className="text-slate-300">
+                ·
+              </span>
+              <span>
+                Small: {simulationSummary.smallDetected}/{simulationSummary.smallTotal} (
+                {simulationSummary.smallRatePct.toFixed(0)}%)
+              </span>
             </div>
-
-            {/* Sector Inspection Filter inside Simulator */}
-            {!isCustomScope && activeArrangement.isRotational && (
-              <div className="mt-2.5 border-t border-slate-100 pt-2.5">
-                <div className="flex items-baseline justify-between gap-2 text-[11px]">
-                  <span className="font-medium text-slate-700">Inspect Sector (0.2 yr each)</span>
-                  <span className="font-mono tabular-nums text-slate-500">
-                    {selectedSector === 'all'
-                      ? 'All 5 sectors'
-                      : SECTOR_ROTATION_SCHEDULE[selectedSector].shortPeriod}
-                  </span>
-                </div>
-                <div
-                  role="group"
-                  aria-label="Inspect sector in simulator"
-                  className="mt-1.5 grid grid-cols-6 gap-1 rounded-lg bg-slate-100 p-1"
-                >
-                  <button
-                    type="button"
-                    aria-pressed={selectedSector === 'all'}
-                    onClick={() => onSelectSector('all')}
-                    className={`min-h-7 rounded-md px-1 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
-                      selectedSector === 'all'
-                        ? 'bg-white text-slate-950 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    All 5
-                  </button>
-                  {SECTOR_IDS.map((sId) => {
-                    const active = selectedSector === sId;
-                    return (
-                      <button
-                        key={sId}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => onSelectSector(active ? 'all' : sId)}
-                        className={`min-h-7 rounded-md px-1 py-1 font-mono text-xs font-semibold tabular-nums transition-colors whitespace-nowrap ${
-                          active
-                            ? 'bg-sky-900 text-white shadow-xs'
-                            : 'text-slate-700 hover:text-slate-950'
-                        }`}
-                      >
-                        S{sId}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             <div
               role="group"
@@ -549,7 +501,7 @@ export function SimulatorPanelSection({
               </label>
 
               <label className="flex cursor-pointer items-center justify-between gap-3 text-xs text-slate-700">
-                <span>Show individual event pins (zoom ≥ 11x)</span>
+                <span>Show crossing lines &amp; pins (zoom ≥ 11x)</span>
                 <input
                   type="checkbox"
                   checked={simulatorConfig.showEventPoints}
@@ -564,66 +516,20 @@ export function SimulatorPanelSection({
         )}
       </section>
 
-      {/* Section 3: Camera Arrangement & Detection Range */}
+      {/* Section 3: Plotted Optics & Detection Range */}
       <section className="p-4">
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-950">Camera Arrangement</h2>
+          <h2 className="text-sm font-semibold text-slate-950">Sensor Line of Sight</h2>
           <span className="font-mono text-xs tabular-nums text-slate-500">
-            {isCustomScope ? '100 custom road units' : '100 hw / city'}
+            {totalRoadUnits.toLocaleString()} road units
           </span>
         </div>
 
-        {isCustomScope ? (
-          <p className="mt-2 text-xs leading-relaxed text-slate-600">
-            {customAreaPlan
-              ? `Testing ${customAreaPlan.cameras.length} Ramboll hotspot-weighted road cameras in ${customAreaPlan.label} (${customAreaPlan.radiusKm} km radius).`
-              : 'Distribute 100 cameras in a custom radius under the Plan tab to evaluate custom road deployments.'}
-          </p>
-        ) : (
-          <div
-            role="radiogroup"
-            aria-label="Select camera arrangement to test"
-            className="mt-2.5 space-y-1.5"
-          >
-            {CAMERA_ARRANGEMENTS.map((arr) => {
-              const isSelected = simulatorConfig.arrangementId === arr.id;
-              return (
-                <button
-                  key={arr.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={isSelected}
-                  onClick={() =>
-                    onUpdateSimulatorConfig({ arrangementId: arr.id as CameraArrangementId })
-                  }
-                  className={`w-full rounded-lg px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 ${
-                    isSelected
-                      ? 'bg-sky-900 text-white'
-                      : 'bg-slate-50 text-slate-800 hover:bg-slate-100'
-                  }`}
-                >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-xs font-semibold whitespace-nowrap">{arr.shortLabel}</span>
-                    <span
-                      className={`font-mono text-[11px] tabular-nums whitespace-nowrap shrink-0 ${
-                        isSelected ? 'text-sky-200' : 'text-slate-500'
-                      }`}
-                    >
-                      {arr.spacingSummary}
-                    </span>
-                  </div>
-                  <p
-                    className={`mt-0.5 text-[11px] leading-snug ${
-                      isSelected ? 'text-sky-100' : 'text-slate-500'
-                    }`}
-                  >
-                    {arr.description}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+          {areasOfInterest.length > 0
+            ? `Crossing lines passing through the closest road at 90° register a hit when they intersect any of the ${totalRoadUnits.toLocaleString()} camera sightlines (${totalAreaKm2} km²).`
+            : 'Add areas of interest under the Plan tab to test road-aligned camera deployments.'}
+        </p>
 
         <div className="mt-3.5 space-y-3 border-t border-slate-100 pt-3">
           <div>
@@ -663,7 +569,7 @@ export function SimulatorPanelSection({
               type="range"
               min={MIN_CAMERA_FOV_DEG}
               max={MAX_CAMERA_FOV_DEG}
-              step={5}
+              step={1}
               value={coverageConfig.fovDeg}
               onChange={(e) => onUpdateCoverageConfig({ fovDeg: Number(e.target.value) })}
               className="mt-1.5 h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-sky-800"
@@ -757,9 +663,7 @@ export function SimulatorPanelSection({
                           <span aria-hidden="true" className="text-xs text-slate-300">
                             ·
                           </span>
-                          <span className="text-xs text-slate-600 truncate">
-                            {ev.cityName} S{ev.eventSpatialSector}
-                          </span>
+                          <span className="text-xs text-slate-600 truncate">{ev.cityName}</span>
                           <span aria-hidden="true" className="text-xs text-slate-300">
                             ·
                           </span>
@@ -778,11 +682,20 @@ export function SimulatorPanelSection({
 
                       <div className="flex w-full items-center justify-between gap-2 text-[11px] text-slate-500">
                         <span className="truncate">
+                          {ev.hasRoadCrossingLine ? `Road ${Math.round(ev.distanceToRoadM)} m · ` : ''}
                           {ev.detected
-                            ? `Caught by ${ev.detectedByCameraId} (${ev.nearestDistanceM} m)`
-                            : !ev.camerasPresentInEventSector
-                              ? `Cameras in S${ev.activeRotationSector} · Event in S${ev.eventSpatialSector}`
-                              : `S${ev.eventSpatialSector} active · Nearest ${ev.nearestDistanceM.toLocaleString()} m`}
+                            ? `Hit ${ev.detectedByCameraId} (${
+                                ev.detectedDistanceM ?? ev.nearestDistanceM
+                              } m)`
+                            : `Nearest ${ev.nearestCameraId} (${ev.nearestDistanceM.toLocaleString()} m${
+                                simulatorConfig.scaleRangeByAnimalSize &&
+                                ev.animalSize === 'small' &&
+                                ev.nearestDistanceM <= coverageConfig.rangeMeters
+                                  ? ` · small max ${Math.round(
+                                      coverageConfig.rangeMeters * SMALL_ANIMAL_RANGE_FACTOR
+                                    )} m`
+                                  : ''
+                              })`}
                         </span>
                         <span className="font-mono tabular-nums text-slate-400 whitespace-nowrap shrink-0">
                           {ev.date}

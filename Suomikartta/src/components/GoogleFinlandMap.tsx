@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AdvancedMarker,
   APIProvider,
@@ -8,30 +8,33 @@ import {
   type MapCameraChangedEvent,
   type MapMouseEvent,
 } from '@vis.gl/react-google-maps';
+import type { PlannedCameraNode } from '../data/finlandWildlifePlan';
 import {
-  TOP_5_WILDLIFE_ACCIDENT_CITIES,
-  type CityCameraPlan,
-  type PlannedCameraNode,
-  type SectorFilter,
-} from '../data/finlandWildlifePlan';
-import {
-  buildCameraCoveragePolygon,
+  computeCameraCoveragePolygons,
   getCameraPriorityTier,
-  SECTOR_PALETTE,
   type CameraCoverageConfig,
 } from '../utils/cameraPlanGeometry';
 import {
-  isArrangementRotational,
   type EvaluatedCrossingEvent,
   type SimulatorConfig,
 } from '../utils/crossingSimulator';
-import type { CustomAreaPlanResult, PlanScopeMode } from '../types/customAreaPlan';
+import type {
+  CustomAreaPlanResult,
+  DrawingToolMode,
+} from '../types/customAreaPlan';
+import {
+  polygonsApproximatelyEqual,
+  simplifyLatLngRing,
+} from '../utils/polygonGeometry';
 import {
   clampCamera,
+  FINLAND_GEOGRAPHIC_BOUNDS,
   FINLAND_VIEWPORT_BOUNDS,
   isPointWithinFinlandBounds,
+  latLngToWorldPixel,
   MAX_ZOOM,
   MIN_ZOOM,
+  worldPixelToLatLng,
   type CameraState,
   type GoogleMapTypeId,
   type LatLngPoint,
@@ -41,42 +44,40 @@ interface GoogleFinlandMapProps {
   apiKey: string;
   camera: CameraState;
   mapTypeId: GoogleMapTypeId;
-  selectedCityId: string;
-  selectedSector: SectorFilter;
+  areasOfInterest: CustomAreaPlanResult[];
+  selectedAreaId: string | null;
   selectedCameraId: string | null;
   coverageConfig: CameraCoverageConfig;
   visibleCameras: PlannedCameraNode[];
   evaluatedEvents: EvaluatedCrossingEvent[];
   simulatorConfig: SimulatorConfig;
-  planScope?: PlanScopeMode;
-  customAreaPlan?: CustomAreaPlanResult | null;
-  customDraftArea?: { center: LatLngPoint; radiusKm: number; label: string } | null;
-  isPickingCustomCenter?: boolean;
+  drawingMode?: DrawingToolMode;
+  drawnPolygon?: LatLngPoint[];
+  draftPolygonVertices?: LatLngPoint[];
   onCameraChange: (next: CameraState) => void;
   onCursorMove: (point: LatLngPoint | null) => void;
   onSelectCamera: (camera: PlannedCameraNode | null) => void;
-  onSelectCity: (city: CityCameraPlan) => void;
-  onSelectSector: (sector: SectorFilter) => void;
-  onPickCustomCenter?: (point: LatLngPoint) => void;
+  onSelectArea: (area: CustomAreaPlanResult) => void;
+  onCompletePolygon?: (polygon: LatLngPoint[]) => void;
+  onAddDraftVertex?: (point: LatLngPoint) => void;
   onAuthError: () => void;
 }
 
 interface GoogleCameraPlanOverlaysProps {
   zoom: number;
-  visibleCities: CityCameraPlan[];
+  areasOfInterest: CustomAreaPlanResult[];
+  selectedAreaId: string | null;
   visibleCameras: PlannedCameraNode[];
-  selectedCityId: string;
-  selectedSector: SectorFilter;
   selectedCameraId: string | null;
   coverageConfig: CameraCoverageConfig;
   evaluatedEvents: EvaluatedCrossingEvent[];
   simulatorConfig: SimulatorConfig;
-  planScope: PlanScopeMode;
-  customAreaPlan: CustomAreaPlanResult | null;
-  customDraftArea: { center: LatLngPoint; radiusKm: number; label: string } | null;
-  isPickingCustomCenter: boolean;
+  drawingMode: DrawingToolMode;
+  drawnPolygon: LatLngPoint[];
+  draftPolygonVertices: LatLngPoint[];
+  liveFreehandPoints: LatLngPoint[];
   onSelectCamera: (camera: PlannedCameraNode) => void;
-  onSelectSector: (sector: SectorFilter) => void;
+  onSelectArea: (area: CustomAreaPlanResult) => void;
 }
 
 interface DetachableMapOverlay {
@@ -85,180 +86,133 @@ interface DetachableMapOverlay {
 
 function GoogleCameraPlanOverlays({
   zoom,
-  visibleCities,
+  areasOfInterest,
+  selectedAreaId,
   visibleCameras,
-  selectedCityId,
-  selectedSector,
   selectedCameraId,
   coverageConfig,
   evaluatedEvents,
   simulatorConfig,
-  planScope,
-  customAreaPlan,
-  customDraftArea,
-  isPickingCustomCenter,
+  drawingMode,
+  drawnPolygon,
+  draftPolygonVertices,
+  liveFreehandPoints,
   onSelectCamera,
-  onSelectSector,
+  onSelectArea,
 }: GoogleCameraPlanOverlaysProps) {
   const map = useMap();
   const mapsLib = useMapsLibrary('maps');
-  const borderPolylinesRef = useRef<DetachableMapOverlay[]>([]);
-  const customAreaCirclesRef = useRef<DetachableMapOverlay[]>([]);
-  const sectorPolygonsRef = useRef<DetachableMapOverlay[]>([]);
+  const customAreaPolygonsRef = useRef<DetachableMapOverlay[]>([]);
   const hotspotCirclesRef = useRef<DetachableMapOverlay[]>([]);
   const simHeatCirclesRef = useRef<DetachableMapOverlay[]>([]);
   const polygonsRef = useRef<DetachableMapOverlay[]>([]);
 
   useEffect(() => {
-    customAreaCirclesRef.current.forEach((c: DetachableMapOverlay) => c.setMap(null));
-    customAreaCirclesRef.current = [];
-    if (!map || !mapsLib || (planScope !== 'custom' && !isPickingCustomCenter)) {
+    customAreaPolygonsRef.current.forEach((c: DetachableMapOverlay) => c.setMap(null));
+    customAreaPolygonsRef.current = [];
+    if (!map || !mapsLib) {
       return;
     }
+
     const created: DetachableMapOverlay[] = [];
-    if (customAreaPlan) {
+
+    for (const area of areasOfInterest) {
+      if (area.polygon.length < 3) continue;
+      const isSelected = area.id === selectedAreaId;
+      const poly = new mapsLib.Polygon({
+        map,
+        paths: area.polygon,
+        fillColor: '#0284c7',
+        fillOpacity: coverageConfig.showCityBoundaries ? (isSelected ? 0.1 : 0.06) : 0,
+        strokeColor: '#0284c7',
+        strokeOpacity: isSelected ? 0.95 : 0.78,
+        strokeWeight: isSelected ? 2.4 : 1.8,
+        clickable: drawingMode === 'none',
+      });
+      if (drawingMode === 'none') {
+        poly.addListener('click', () => {
+          onSelectArea(area);
+        });
+      }
+      created.push(poly);
+    }
+
+    const matchesExistingArea = areasOfInterest.some((a) =>
+      polygonsApproximatelyEqual(drawnPolygon, a.polygon)
+    );
+
+    if (drawnPolygon.length >= 3 && drawingMode === 'none' && !matchesExistingArea) {
       created.push(
-        new mapsLib.Circle({
+        new mapsLib.Polygon({
           map,
-          center: customAreaPlan.center,
-          radius: customAreaPlan.radiusKm * 1000,
-          fillColor: '#0284c7',
-          fillOpacity: coverageConfig.showCityBoundaries ? 0.06 : 0,
-          strokeColor: '#0284c7',
+          paths: drawnPolygon,
+          fillColor: '#d97706',
+          fillOpacity: 0.09,
+          strokeColor: '#b45309',
           strokeOpacity: 0.9,
           strokeWeight: 2,
           clickable: false,
         })
       );
     }
-    if (
-      customDraftArea &&
-      (!customAreaPlan ||
-        Math.abs(customDraftArea.center.lat - customAreaPlan.center.lat) > 0.0004 ||
-        Math.abs(customDraftArea.center.lng - customAreaPlan.center.lng) > 0.0004 ||
-        Math.abs(customDraftArea.radiusKm - customAreaPlan.radiusKm) > 0.05 ||
-        isPickingCustomCenter)
-    ) {
+
+    if (drawingMode === 'polygon' && draftPolygonVertices.length >= 2) {
       created.push(
-        new mapsLib.Circle({
+        new mapsLib.Polyline({
           map,
-          center: customDraftArea.center,
-          radius: customDraftArea.radiusKm * 1000,
-          fillColor: '#d97706',
-          fillOpacity: 0.06,
-          strokeColor: '#b45309',
-          strokeOpacity: 0.85,
-          strokeWeight: 1.8,
+          path: draftPolygonVertices,
+          strokeColor: '#d97706',
+          strokeOpacity: 0.95,
+          strokeWeight: 2.2,
           clickable: false,
         })
       );
     }
-    customAreaCirclesRef.current = created;
+
+    if (drawingMode === 'freehand' && liveFreehandPoints.length >= 2) {
+      created.push(
+        new mapsLib.Polygon({
+          map,
+          paths: liveFreehandPoints,
+          fillColor: '#d97706',
+          fillOpacity: 0.12,
+          strokeColor: '#d97706',
+          strokeOpacity: 0.95,
+          strokeWeight: 2.2,
+          clickable: false,
+        })
+      );
+    }
+
+    customAreaPolygonsRef.current = created;
     return () => {
       created.forEach((c: DetachableMapOverlay) => c.setMap(null));
     };
   }, [
+    areasOfInterest,
     coverageConfig.showCityBoundaries,
-    customAreaPlan,
-    customDraftArea,
-    isPickingCustomCenter,
+    draftPolygonVertices,
+    drawingMode,
+    drawnPolygon,
+    liveFreehandPoints,
     map,
     mapsLib,
-    planScope,
+    onSelectArea,
+    selectedAreaId,
   ]);
-
-  useEffect(() => {
-    sectorPolygonsRef.current.forEach((p: DetachableMapOverlay) => p.setMap(null));
-    sectorPolygonsRef.current = [];
-
-    if (!map || !mapsLib || !coverageConfig.showDeploymentSectors) {
-      return;
-    }
-
-    const created: DetachableMapOverlay[] = [];
-    for (const city of visibleCities) {
-      for (const sec of city.sectors) {
-        if (sec.voronoiRing.length < 3) continue;
-        const style = SECTOR_PALETTE[sec.sectorIndex];
-        const isFocused = selectedSector === sec.sectorIndex;
-        const isDimmed = selectedSector !== 'all' && !isFocused;
-        const polygon = new mapsLib.Polygon({
-          map,
-          paths: sec.voronoiRing.map(([lng, lat]) => ({ lat, lng })),
-          fillColor: isDimmed ? '#94a3b8' : style.hex,
-          fillOpacity: isDimmed ? 0.04 : isFocused ? 0.22 : 0.11,
-          strokeColor: isDimmed ? '#94a3b8' : style.hex,
-          strokeOpacity: isDimmed ? 0.35 : 0.78,
-          strokeWeight: isFocused ? 2.2 : 1.3,
-          clickable: true,
-        });
-        polygon.addListener('click', () => {
-          onSelectSector(selectedSector === sec.sectorIndex ? 'all' : sec.sectorIndex);
-        });
-        created.push(polygon);
-      }
-    }
-    sectorPolygonsRef.current = created;
-
-    return () => {
-      created.forEach((p: DetachableMapOverlay) => p.setMap(null));
-    };
-  }, [
-    coverageConfig.showDeploymentSectors,
-    map,
-    mapsLib,
-    onSelectSector,
-    selectedSector,
-    visibleCities,
-  ]);
-
-  useEffect(() => {
-    borderPolylinesRef.current.forEach((p: DetachableMapOverlay) => p.setMap(null));
-    borderPolylinesRef.current = [];
-
-    if (!map || !mapsLib || !coverageConfig.showCityBoundaries) {
-      return;
-    }
-
-    const created: DetachableMapOverlay[] = [];
-    for (const city of visibleCities) {
-      for (const ring of city.borderLines) {
-        const poly = new mapsLib.Polyline({
-          map,
-          path: ring.map(([lng, lat]) => ({ lat, lng })),
-          strokeColor: '#0284c7',
-          strokeOpacity: 0.85,
-          strokeWeight: selectedCityId === city.id ? 2.2 : 1.6,
-          clickable: false,
-        });
-        created.push(poly);
-      }
-    }
-    borderPolylinesRef.current = created;
-
-    return () => {
-      created.forEach((p: DetachableMapOverlay) => p.setMap(null));
-    };
-  }, [coverageConfig.showCityBoundaries, map, mapsLib, selectedCityId, visibleCities]);
 
   useEffect(() => {
     hotspotCirclesRef.current.forEach((c: DetachableMapOverlay) => c.setMap(null));
     hotspotCirclesRef.current = [];
 
-    if (!map || !mapsLib || !coverageConfig.showAccidentHotspots) {
+    if (!map || !mapsLib || !coverageConfig.showAccidentHotspots || areasOfInterest.length === 0) {
       return;
     }
 
     const created: DetachableMapOverlay[] = [];
-    const hotspotLists =
-      planScope === 'custom'
-        ? customAreaPlan
-          ? [customAreaPlan.hotspots]
-          : []
-        : visibleCities.map((c) => c.hotspots);
 
-    for (const hList of hotspotLists) {
-      for (const [lng, lat, count] of hList) {
+    for (const area of areasOfInterest) {
+      for (const [lng, lat, count] of area.hotspots) {
         const circle = new mapsLib.Circle({
           map,
           center: { lat, lng },
@@ -276,7 +230,7 @@ function GoogleCameraPlanOverlays({
     return () => {
       created.forEach((c: DetachableMapOverlay) => c.setMap(null));
     };
-  }, [coverageConfig.showAccidentHotspots, customAreaPlan, map, mapsLib, planScope, visibleCities]);
+  }, [areasOfInterest, coverageConfig.showAccidentHotspots, map, mapsLib]);
 
   useEffect(() => {
     polygonsRef.current.forEach((p: DetachableMapOverlay) => p.setMap(null));
@@ -289,27 +243,30 @@ function GoogleCameraPlanOverlays({
     const created: DetachableMapOverlay[] = [];
     for (const cam of visibleCameras) {
       const isSelected = cam.id === selectedCameraId;
-      const path = buildCameraCoveragePolygon(
-        { lat: cam.lat, lng: cam.lng },
-        cam.bearingDeg,
+      const paths = computeCameraCoveragePolygons(
+        cam,
         coverageConfig.rangeMeters,
         coverageConfig.fovDeg,
         12
       );
-      const polygon = new mapsLib.Polygon({
-        map,
-        paths: path,
-        fillColor: isSelected ? '#d97706' : '#0891b2',
-        fillOpacity: isSelected ? 0.36 : 0.25,
-        strokeColor: isSelected ? '#b45309' : '#0e7490',
-        strokeOpacity: 0.85,
-        strokeWeight: isSelected ? 2 : 1.2,
-        clickable: true,
-      });
-      polygon.addListener('click', () => {
-        onSelectCamera(cam);
-      });
-      created.push(polygon);
+      for (const path of paths) {
+        const polygon = new mapsLib.Polygon({
+          map,
+          paths: path,
+          fillColor: isSelected ? '#d97706' : '#0891b2',
+          fillOpacity: isSelected ? 0.36 : 0.25,
+          strokeColor: isSelected ? '#b45309' : '#0e7490',
+          strokeOpacity: 0.85,
+          strokeWeight: isSelected ? 2 : 1.2,
+          clickable: drawingMode === 'none',
+        });
+        if (drawingMode === 'none') {
+          polygon.addListener('click', () => {
+            onSelectCamera(cam);
+          });
+        }
+        created.push(polygon);
+      }
     }
     polygonsRef.current = created;
 
@@ -320,6 +277,7 @@ function GoogleCameraPlanOverlays({
     coverageConfig.fovDeg,
     coverageConfig.rangeMeters,
     coverageConfig.showCoverageAreas,
+    drawingMode,
     map,
     mapsLib,
     onSelectCamera,
@@ -336,25 +294,61 @@ function GoogleCameraPlanOverlays({
       !map ||
       !mapsLib ||
       evaluatedEvents.length === 0 ||
-      (!simulatorConfig.showDetectedHeatmap && !simulatorConfig.showMissedHeatmap)
+      (!simulatorConfig.showDetectedHeatmap &&
+        !simulatorConfig.showMissedHeatmap &&
+        !(simulatorConfig.showEventPoints && zoom >= 11.0))
     ) {
       return;
     }
 
+    const onlyOneLayerActive =
+      simulatorConfig.showDetectedHeatmap !== simulatorConfig.showMissedHeatmap;
     const created: DetachableMapOverlay[] = [];
     for (const ev of evaluatedEvents) {
-      if (ev.detected && !simulatorConfig.showDetectedHeatmap) continue;
-      if (!ev.detected && !simulatorConfig.showMissedHeatmap) continue;
-      const circle = new mapsLib.Circle({
-        map,
-        center: { lat: ev.lat, lng: ev.lng },
-        radius: ev.animalSize === 'large' ? 420 : 310,
-        fillColor: ev.detected ? '#10b981' : '#e11d48',
-        fillOpacity: 0.28,
-        strokeWeight: 0,
-        clickable: false,
-      });
-      created.push(circle);
+      const showHeatForEvent =
+        (ev.detected && simulatorConfig.showDetectedHeatmap) ||
+        (!ev.detected && simulatorConfig.showMissedHeatmap);
+
+      if (showHeatForEvent) {
+        const heatLat = ev.hasRoadCrossingLine ? ev.roadLat : ev.lat;
+        const heatLng = ev.hasRoadCrossingLine ? ev.roadLng : ev.lng;
+        const circle = new mapsLib.Circle({
+          map,
+          center: { lat: heatLat, lng: heatLng },
+          radius: ev.animalSize === 'large' ? 420 : 310,
+          fillColor: ev.detected ? '#10b981' : '#e11d48',
+          fillOpacity: 0.28,
+          strokeWeight: 0,
+          clickable: false,
+        });
+        created.push(circle);
+      }
+
+      const passPointFilter =
+        !onlyOneLayerActive ||
+        (ev.detected && simulatorConfig.showDetectedHeatmap) ||
+        (!ev.detected && simulatorConfig.showMissedHeatmap);
+
+      if (
+        passPointFilter &&
+        simulatorConfig.showEventPoints &&
+        zoom >= 11.0 &&
+        ev.hasRoadCrossingLine
+      ) {
+        created.push(
+          new mapsLib.Polyline({
+            map,
+            path: [
+              { lat: ev.crossingStartLat, lng: ev.crossingStartLng },
+              { lat: ev.crossingEndLat, lng: ev.crossingEndLng },
+            ],
+            strokeColor: ev.detected ? '#059669' : '#e11d48',
+            strokeOpacity: 0.9,
+            strokeWeight: 2.2,
+            clickable: false,
+          })
+        );
+      }
     }
     simHeatCirclesRef.current = created;
 
@@ -366,7 +360,9 @@ function GoogleCameraPlanOverlays({
     map,
     mapsLib,
     simulatorConfig.showDetectedHeatmap,
+    simulatorConfig.showEventPoints,
     simulatorConfig.showMissedHeatmap,
+    zoom,
   ]);
 
   return null;
@@ -376,28 +372,27 @@ export function GoogleFinlandMap({
   apiKey,
   camera,
   mapTypeId,
-  selectedCityId,
-  selectedSector,
+  areasOfInterest,
+  selectedAreaId,
   selectedCameraId,
   coverageConfig,
   visibleCameras,
   evaluatedEvents,
   simulatorConfig,
-  planScope = 'top5',
-  customAreaPlan = null,
-  customDraftArea = null,
-  isPickingCustomCenter = false,
+  drawingMode = 'none',
+  drawnPolygon = [],
+  draftPolygonVertices = [],
   onCameraChange,
   onCursorMove,
   onSelectCamera,
-  onSelectCity,
-  onSelectSector,
-  onPickCustomCenter,
+  onSelectArea,
+  onCompletePolygon,
+  onAddDraftVertex,
   onAuthError,
 }: GoogleFinlandMapProps) {
-  const visibleCities = planScope === 'custom' ? [] : TOP_5_WILDLIFE_ACCIDENT_CITIES;
-  const isRotationalPlan =
-    planScope !== 'custom' && isArrangementRotational(simulatorConfig.arrangementId);
+  const [liveFreehandPoints, setLiveFreehandPoints] = useState<LatLngPoint[]>([]);
+  const freehandActiveRef = useRef<boolean>(false);
+  const freehandPointsRef = useRef<LatLngPoint[]>([]);
 
   useEffect(() => {
     const win = window as Window & { gm_authFailure?: () => void };
@@ -439,18 +434,43 @@ export function GoogleFinlandMap({
 
   const handleMapClick = useCallback(
     (ev: MapMouseEvent) => {
-      if (!isPickingCustomCenter || !onPickCustomCenter || !ev.detail.latLng) return;
+      if (drawingMode !== 'polygon' || !ev.detail.latLng) return;
       if (isPointWithinFinlandBounds(ev.detail.latLng)) {
-        onPickCustomCenter({
-          lat: Number(ev.detail.latLng.lat.toFixed(4)),
-          lng: Number(ev.detail.latLng.lng.toFixed(4)),
+        onAddDraftVertex?.({
+          lat: Number(ev.detail.latLng.lat.toFixed(5)),
+          lng: Number(ev.detail.latLng.lng.toFixed(5)),
         });
       }
     },
-    [isPickingCustomCenter, onPickCustomCenter]
+    [drawingMode, onAddDraftVertex]
   );
 
-  const showIndividualMarkers = planScope === 'custom' || camera.zoom >= 8.5;
+  const screenEventToLatLng = (
+    e: React.PointerEvent<HTMLDivElement>
+  ): LatLngPoint => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetX = e.clientX - (rect.left + rect.width / 2);
+    const offsetY = e.clientY - (rect.top + rect.height / 2);
+    const centerWorld = latLngToWorldPixel(camera.center, camera.zoom);
+    const raw = worldPixelToLatLng(
+      { x: centerWorld.x + offsetX, y: centerWorld.y + offsetY },
+      camera.zoom
+    );
+    return {
+      lat: Number(
+        Math.max(
+          FINLAND_GEOGRAPHIC_BOUNDS.south,
+          Math.min(FINLAND_GEOGRAPHIC_BOUNDS.north, raw.lat)
+        ).toFixed(5)
+      ),
+      lng: Number(
+        Math.max(
+          FINLAND_GEOGRAPHIC_BOUNDS.west,
+          Math.min(FINLAND_GEOGRAPHIC_BOUNDS.east, raw.lng)
+        ).toFixed(5)
+      ),
+    };
+  };
 
   return (
     <APIProvider apiKey={apiKey} language="en" region="FI" libraries={['marker']}>
@@ -466,10 +486,10 @@ export function GoogleFinlandMap({
             latLngBounds: FINLAND_VIEWPORT_BOUNDS,
             strictBounds: true,
           }}
-          gestureHandling="greedy"
+          gestureHandling={drawingMode === 'freehand' ? 'none' : 'greedy'}
           disableDefaultUI={true}
           clickableIcons={false}
-          draggableCursor={isPickingCustomCenter ? 'crosshair' : undefined}
+          draggableCursor={drawingMode !== 'none' ? 'crosshair' : undefined}
           internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
           onCameraChanged={handleCameraChanged}
           onClick={handleMapClick}
@@ -479,69 +499,76 @@ export function GoogleFinlandMap({
         >
           <GoogleCameraPlanOverlays
             zoom={camera.zoom}
-            visibleCities={visibleCities}
+            areasOfInterest={areasOfInterest}
+            selectedAreaId={selectedAreaId}
             visibleCameras={visibleCameras}
-            selectedCityId={selectedCityId}
-            selectedSector={selectedSector}
             selectedCameraId={selectedCameraId}
             coverageConfig={coverageConfig}
             evaluatedEvents={evaluatedEvents}
             simulatorConfig={simulatorConfig}
-            planScope={planScope}
-            customAreaPlan={customAreaPlan}
-            customDraftArea={customDraftArea}
-            isPickingCustomCenter={isPickingCustomCenter}
+            drawingMode={drawingMode}
+            drawnPolygon={drawnPolygon}
+            draftPolygonVertices={draftPolygonVertices}
+            liveFreehandPoints={liveFreehandPoints}
             onSelectCamera={onSelectCamera}
-            onSelectSector={onSelectSector}
+            onSelectArea={onSelectArea}
           />
 
-          {!showIndividualMarkers
-            ? visibleCities.map((city) => (
-                <AdvancedMarker
-                  key={city.id}
-                  position={city.center}
-                  onClick={() => onSelectCity(city)}
-                  title={`${city.name}: ${city.totalAccidents.toLocaleString('en-US')} wildlife collisions · 5 sectors × 100 cameras`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onSelectCity(city)}
-                    className="rounded-md border border-slate-300 bg-white/95 px-2 py-1 text-[11px] font-semibold text-slate-900 shadow-xs whitespace-nowrap"
-                  >
-                    #{city.rank} {city.name} · {city.totalAccidents.toLocaleString('en-US')}
-                  </button>
-                </AdvancedMarker>
-              ))
-            : visibleCameras.map((cam) => {
-                const isSelected = cam.id === selectedCameraId;
-                const tier = getCameraPriorityTier(cam.rankInSector);
-                const secColor = SECTOR_PALETTE[cam.sectorIndex].hex;
-                const dotColor = isSelected
-                  ? 'h-3.5 w-3.5 bg-amber-600 ring-2 ring-amber-400'
-                  : tier === 'critical'
-                    ? 'h-2.5 w-2.5 bg-rose-700'
-                    : tier === 'high'
-                      ? 'h-2.5 w-2.5 bg-sky-700'
-                      : 'h-2.5 w-2.5 bg-teal-700';
-                return (
-                  <AdvancedMarker
-                    key={cam.id}
-                    position={{ lat: cam.lat, lng: cam.lng }}
-                    onClick={() => onSelectCamera(cam)}
-                    title={`${cam.id} (${cam.cityName} · S${cam.sectorIndex} ${cam.sectorPeriod}) — ${cam.historicalAccidents} collisions`}
-                  >
-                    {isRotationalPlan && selectedSector === 'all' && !isSelected ? (
-                      <span
-                        className="block h-2.5 w-2.5 rounded-full border border-white"
-                        style={{ backgroundColor: secColor }}
-                      />
-                    ) : (
-                      <span className={`block rounded-full border border-white ${dotColor}`} />
-                    )}
-                  </AdvancedMarker>
-                );
-              })}
+          {visibleCameras.map((cam) => {
+            const isSelected = cam.id === selectedCameraId;
+            const tier = getCameraPriorityTier(cam.rankInCity);
+            const dotColor = isSelected
+              ? 'h-3.5 w-3.5 bg-amber-600 ring-2 ring-amber-400'
+              : tier === 'critical'
+                ? 'h-2.5 w-2.5 bg-rose-700'
+                : tier === 'high'
+                  ? 'h-2.5 w-2.5 bg-sky-700'
+                  : 'h-2.5 w-2.5 bg-teal-700';
+            return (
+              <AdvancedMarker
+                key={cam.id}
+                position={{ lat: cam.lat, lng: cam.lng }}
+                onClick={() => onSelectCamera(cam)}
+                title={`${cam.id} (${cam.cityName} · ${cam.roadLabel}) — ${cam.historicalAccidents} collisions`}
+              >
+                <span className={`block rounded-full border border-white ${dotColor}`} />
+              </AdvancedMarker>
+            );
+          })}
         </GoogleMap>
+
+        {drawingMode === 'freehand' && (
+          <div
+            aria-label="Freehand area drawing surface"
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              freehandActiveRef.current = true;
+              const pt = screenEventToLatLng(e);
+              freehandPointsRef.current = [pt];
+              setLiveFreehandPoints([pt]);
+            }}
+            onPointerMove={(e) => {
+              const pt = screenEventToLatLng(e);
+              onCursorMove(pt);
+              if (!freehandActiveRef.current) return;
+              freehandPointsRef.current.push(pt);
+              setLiveFreehandPoints([...freehandPointsRef.current]);
+            }}
+            onPointerUp={() => {
+              freehandActiveRef.current = false;
+              const raw = freehandPointsRef.current;
+              freehandPointsRef.current = [];
+              setLiveFreehandPoints([]);
+              if (raw.length >= 3) {
+                const simplified = simplifyLatLngRing(raw);
+                if (simplified.length >= 3) {
+                  onCompletePolygon?.(simplified);
+                }
+              }
+            }}
+            className="absolute inset-0 z-10 cursor-crosshair touch-none"
+          />
+        )}
       </div>
     </APIProvider>
   );

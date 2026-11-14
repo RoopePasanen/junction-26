@@ -5,26 +5,29 @@ import {
   FINLAND_VECTOR_FEATURES,
   NATURAL_MAP_LABELS,
 } from '../data/finlandGeo';
-import {
-  TOP_5_WILDLIFE_ACCIDENT_CITIES,
-  type CityCameraPlan,
-  type PlannedCameraNode,
-  type SectorFilter,
-} from '../data/finlandWildlifePlan';
+import type { PlannedCameraNode } from '../data/finlandWildlifePlan';
 import {
   buildGeographicCircleRing,
-  computeCameraSectorPolygon,
+  computeCameraCoveragePolygons,
   destinationPoint,
+  getCameraBearings,
   getCameraPriorityTier,
-  SECTOR_PALETTE,
   type CameraCoverageConfig,
 } from '../utils/cameraPlanGeometry';
 import {
-  isArrangementRotational,
+  SMALL_ANIMAL_RANGE_FACTOR,
   type EvaluatedCrossingEvent,
   type SimulatorConfig,
 } from '../utils/crossingSimulator';
-import type { CustomAreaPlanResult, PlanScopeMode } from '../types/customAreaPlan';
+import type {
+  CustomAreaPlanResult,
+  DrawingToolMode,
+} from '../types/customAreaPlan';
+import {
+  isPointInLatLngPolygon,
+  polygonsApproximatelyEqual,
+  simplifyLatLngRing,
+} from '../utils/polygonGeometry';
 import {
   calculateGroundResolutionMetersPerPixel,
   clampCamera,
@@ -48,25 +51,24 @@ interface CanvasFinlandMapProps {
   showLabels: boolean;
   showTerrain: boolean;
   showGraticule: boolean;
-  selectedCityId: string;
-  selectedSector: SectorFilter;
+  areasOfInterest: CustomAreaPlanResult[];
+  selectedAreaId: string | null;
   selectedCameraId: string | null;
   coverageConfig: CameraCoverageConfig;
   visibleCameras: PlannedCameraNode[];
   evaluatedEvents: EvaluatedCrossingEvent[];
   simulatorConfig: SimulatorConfig;
   selectedCrossingEventId: string | null;
-  planScope?: PlanScopeMode;
-  customAreaPlan?: CustomAreaPlanResult | null;
-  customDraftArea?: { center: LatLngPoint; radiusKm: number; label: string } | null;
-  isPickingCustomCenter?: boolean;
+  drawingMode?: DrawingToolMode;
+  drawnPolygon?: LatLngPoint[];
+  draftPolygonVertices?: LatLngPoint[];
   onCameraChange: (next: CameraState) => void;
   onCursorMove: (point: LatLngPoint | null) => void;
   onSelectCamera: (camera: PlannedCameraNode | null) => void;
-  onSelectCity: (city: CityCameraPlan) => void;
-  onSelectSector: (sector: SectorFilter) => void;
+  onSelectArea: (area: CustomAreaPlanResult) => void;
   onSelectCrossingEvent: (event: EvaluatedCrossingEvent) => void;
-  onPickCustomCenter?: (point: LatLngPoint) => void;
+  onCompletePolygon?: (polygon: LatLngPoint[]) => void;
+  onAddDraftVertex?: (point: LatLngPoint) => void;
 }
 
 interface TileRecord {
@@ -102,25 +104,24 @@ export function CanvasFinlandMap({
   showLabels,
   showTerrain,
   showGraticule,
-  selectedCityId,
-  selectedSector,
+  areasOfInterest,
+  selectedAreaId,
   selectedCameraId,
   coverageConfig,
   visibleCameras,
   evaluatedEvents,
   simulatorConfig,
   selectedCrossingEventId,
-  planScope = 'top5',
-  customAreaPlan = null,
-  customDraftArea = null,
-  isPickingCustomCenter = false,
+  drawingMode = 'none',
+  drawnPolygon = [],
+  draftPolygonVertices = [],
   onCameraChange,
   onCursorMove,
   onSelectCamera,
-  onSelectCity,
-  onSelectSector,
+  onSelectArea,
   onSelectCrossingEvent,
-  onPickCustomCenter,
+  onCompletePolygon,
+  onAddDraftVertex,
 }: CanvasFinlandMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -129,25 +130,30 @@ export function CanvasFinlandMap({
   const heatKernelCacheRef = useRef<Record<string, HTMLCanvasElement>>({});
   const rafIdRef = useRef<number | null>(null);
 
-  const visibleCities = planScope === 'custom' ? [] : TOP_5_WILDLIFE_ACCIDENT_CITIES;
-
   const cameraRef = useRef<CameraState>(camera);
   cameraRef.current = camera;
 
-  const planScopeRef = useRef<PlanScopeMode>(planScope);
-  planScopeRef.current = planScope;
+  const areasOfInterestRef = useRef<CustomAreaPlanResult[]>(areasOfInterest);
+  areasOfInterestRef.current = areasOfInterest;
 
-  const isPickingCustomCenterRef = useRef<boolean>(isPickingCustomCenter);
-  isPickingCustomCenterRef.current = isPickingCustomCenter;
+  const drawingModeRef = useRef<DrawingToolMode>(drawingMode);
+  drawingModeRef.current = drawingMode;
 
-  const onPickCustomCenterRef = useRef(onPickCustomCenter);
-  onPickCustomCenterRef.current = onPickCustomCenter;
+  const draftPolygonVerticesRef = useRef<LatLngPoint[]>(draftPolygonVertices);
+  draftPolygonVerticesRef.current = draftPolygonVertices;
 
-  const selectedSectorRef = useRef<SectorFilter>(selectedSector);
-  selectedSectorRef.current = selectedSector;
+  const onCompletePolygonRef = useRef(onCompletePolygon);
+  onCompletePolygonRef.current = onCompletePolygon;
 
-  const coverageConfigRef = useRef<CameraCoverageConfig>(coverageConfig);
-  coverageConfigRef.current = coverageConfig;
+  const onAddDraftVertexRef = useRef(onAddDraftVertex);
+  onAddDraftVertexRef.current = onAddDraftVertex;
+
+  const onSelectAreaRef = useRef(onSelectArea);
+  onSelectAreaRef.current = onSelectArea;
+
+  const freehandStrokeRef = useRef<LatLngPoint[]>([]);
+  const freehandLastScreenRef = useRef<{ x: number; y: number } | null>(null);
+  const cursorLatLngRef = useRef<LatLngPoint | null>(null);
 
   const visibleCamerasRef = useRef<PlannedCameraNode[]>(visibleCameras);
   visibleCamerasRef.current = visibleCameras;
@@ -562,210 +568,200 @@ export function CanvasFinlandMap({
       }
     }
 
-    // 7. Top 5 Wildlife Accident Cities: 5 Deployment Sectors, Boundaries & Hotspots
-    const citiesToDraw = visibleCities;
+    // 7. User-Added Areas of Interest Polygons, Draft Polygon, and Live Drawing Strokes
+    for (const area of areasOfInterest) {
+      const activeRing =
+        area.polygon.length >= 3
+          ? area.polygon
+          : buildGeographicCircleRing(area.center, area.radiusKm * 1000, 72);
+      const isSelected = area.id === selectedAreaId;
 
-    if (coverageConfig.showDeploymentSectors) {
-      for (const city of citiesToDraw) {
-        ctx.save();
+      ctx.beginPath();
+      activeRing.forEach((pt, idx) => {
+        const sp = toScreen(pt.lng, pt.lat);
+        if (idx === 0) ctx.moveTo(sp.x, sp.y);
+        else ctx.lineTo(sp.x, sp.y);
+      });
+      ctx.closePath();
+
+      if (coverageConfig.showCityBoundaries) {
+        ctx.fillStyle = isSatellite
+          ? isSelected
+            ? 'rgba(56, 189, 248, 0.12)'
+            : 'rgba(56, 189, 248, 0.07)'
+          : isSelected
+            ? 'rgba(2, 132, 199, 0.08)'
+            : 'rgba(2, 132, 199, 0.045)';
+        ctx.fill();
+      }
+
+      ctx.save();
+      ctx.setLineDash([8, 5]);
+      ctx.lineWidth = isSelected ? 2.3 : 1.7;
+      ctx.strokeStyle = isSatellite
+        ? isSelected
+          ? 'rgba(125, 211, 252, 0.96)'
+          : 'rgba(125, 211, 252, 0.78)'
+        : isSelected
+          ? 'rgba(3, 105, 161, 0.92)'
+          : 'rgba(3, 105, 161, 0.72)';
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    const matchesExistingArea = areasOfInterest.some((a) =>
+      polygonsApproximatelyEqual(drawnPolygon, a.polygon)
+    );
+
+    const showUnplottedDrawnPolygon =
+      drawnPolygon.length >= 3 && drawingMode === 'none' && !matchesExistingArea;
+
+    if (showUnplottedDrawnPolygon) {
+      ctx.beginPath();
+      drawnPolygon.forEach((pt, idx) => {
+        const sp = toScreen(pt.lng, pt.lat);
+        if (idx === 0) ctx.moveTo(sp.x, sp.y);
+        else ctx.lineTo(sp.x, sp.y);
+      });
+      ctx.closePath();
+
+      ctx.fillStyle = isSatellite
+        ? 'rgba(251, 191, 36, 0.12)'
+        : 'rgba(217, 119, 6, 0.08)';
+      ctx.fill();
+
+      ctx.save();
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 2.0;
+      ctx.strokeStyle = isSatellite
+        ? 'rgba(253, 224, 71, 0.94)'
+        : 'rgba(180, 83, 9, 0.90)';
+      ctx.stroke();
+      ctx.restore();
+
+      for (const pt of drawnPolygon) {
+        const sp = toScreen(pt.lng, pt.lat);
         ctx.beginPath();
-        for (const ring of city.borderLines) {
-          if (ring.length < 3) continue;
-          ring.forEach(([lng, lat], idx) => {
-            const pt = toScreen(lng, lat);
-            if (idx === 0) ctx.moveTo(pt.x, pt.y);
-            else ctx.lineTo(pt.x, pt.y);
-          });
-          ctx.closePath();
-        }
-        ctx.clip('evenodd');
-
-        for (const sec of city.sectors) {
-          if (sec.voronoiRing.length < 3) continue;
-          const style = SECTOR_PALETTE[sec.sectorIndex];
-          const isFocused = selectedSector === sec.sectorIndex;
-          const isDimmed = selectedSector !== 'all' && !isFocused;
-
-          ctx.beginPath();
-          sec.voronoiRing.forEach(([lng, lat], idx) => {
-            const pt = toScreen(lng, lat);
-            if (idx === 0) ctx.moveTo(pt.x, pt.y);
-            else ctx.lineTo(pt.x, pt.y);
-          });
-          ctx.closePath();
-
-          ctx.fillStyle = isDimmed
-            ? isSatellite
-              ? 'rgba(15, 23, 42, 0.16)'
-              : 'rgba(148, 163, 184, 0.05)'
-            : isFocused
-              ? isSatellite
-                ? style.fillActiveSat
-                : style.fillActiveBase
-              : isSatellite
-                ? style.fillSat
-                : style.fillBase;
-          ctx.fill();
-
-          ctx.save();
-          ctx.setLineDash([5, 4]);
-          ctx.lineWidth = isFocused ? 2.2 : 1.25;
-          ctx.strokeStyle = isDimmed
-            ? isSatellite
-              ? 'rgba(148, 163, 184, 0.42)'
-              : 'rgba(100, 116, 139, 0.36)'
-            : isSatellite
-              ? style.strokeSat
-              : style.strokeBase;
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        ctx.restore();
+        ctx.arc(sp.x, sp.y, 3.0, 0, Math.PI * 2);
+        ctx.fillStyle = isSatellite ? '#fde047' : '#b45309';
+        ctx.fill();
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
       }
     }
 
-    if (coverageConfig.showCityBoundaries) {
-      for (const city of citiesToDraw) {
-        const isActiveCity = selectedCityId === city.id;
-        for (const ring of city.borderLines) {
-          if (ring.length < 3) continue;
-          ctx.beginPath();
-          ring.forEach(([lng, lat], idx) => {
-            const pt = toScreen(lng, lat);
-            if (idx === 0) ctx.moveTo(pt.x, pt.y);
-            else ctx.lineTo(pt.x, pt.y);
-          });
-          ctx.closePath();
+    // Live Freehand Lasso Stroke
+    if (drawingMode === 'freehand' && freehandStrokeRef.current.length >= 2) {
+      const stroke = freehandStrokeRef.current;
+      ctx.beginPath();
+      stroke.forEach((pt, idx) => {
+        const sp = toScreen(pt.lng, pt.lat);
+        if (idx === 0) ctx.moveTo(sp.x, sp.y);
+        else ctx.lineTo(sp.x, sp.y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = isSatellite
+        ? 'rgba(251, 191, 36, 0.14)'
+        : 'rgba(217, 119, 6, 0.10)';
+      ctx.fill();
 
-          if (!coverageConfig.showDeploymentSectors) {
-            ctx.fillStyle = isSatellite
-              ? isActiveCity
-                ? 'rgba(56, 189, 248, 0.08)'
-                : 'rgba(56, 189, 248, 0.06)'
-              : isActiveCity
-                ? 'rgba(2, 132, 199, 0.05)'
-                : 'rgba(2, 132, 199, 0.04)';
-            ctx.fill();
-          }
+      ctx.beginPath();
+      stroke.forEach((pt, idx) => {
+        const sp = toScreen(pt.lng, pt.lat);
+        if (idx === 0) ctx.moveTo(sp.x, sp.y);
+        else ctx.lineTo(sp.x, sp.y);
+      });
+      ctx.lineWidth = 2.3;
+      ctx.strokeStyle = isSatellite ? '#fde047' : '#d97706';
+      ctx.stroke();
 
-          ctx.save();
-          ctx.setLineDash(zoom >= 9 ? [7, 4] : []);
-          ctx.lineWidth = isActiveCity ? 2.1 : 1.5;
-          ctx.strokeStyle = isSatellite
-            ? 'rgba(125, 211, 252, 0.88)'
-            : 'rgba(3, 105, 161, 0.82)';
-          ctx.stroke();
-          ctx.restore();
-        }
-      }
+      const firstSp = toScreen(stroke[0].lng, stroke[0].lat);
+      const lastSp = toScreen(stroke[stroke.length - 1].lng, stroke[stroke.length - 1].lat);
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(lastSp.x, lastSp.y);
+      ctx.lineTo(firstSp.x, firstSp.y);
+      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = isSatellite ? 'rgba(253, 224, 71, 0.8)' : 'rgba(180, 83, 9, 0.75)';
+      ctx.stroke();
+      ctx.restore();
     }
 
-    // 7.2. Custom Location & Radius Study Circle + Draft Preview Circle
-    if (planScope === 'custom' || isPickingCustomCenter) {
-      const hasDistinctDraft =
-        customDraftArea !== null &&
-        (!customAreaPlan ||
-          Math.abs(customDraftArea.center.lat - customAreaPlan.center.lat) > 0.0004 ||
-          Math.abs(customDraftArea.center.lng - customAreaPlan.center.lng) > 0.0004 ||
-          Math.abs(customDraftArea.radiusKm - customAreaPlan.radiusKm) > 0.05 ||
-          isPickingCustomCenter);
-
-      if (customAreaPlan) {
-        const activeCircle = buildGeographicCircleRing(
-          customAreaPlan.center,
-          customAreaPlan.radiusKm * 1000,
-          96
-        );
+    // Live Click-by-Click Polygon Vertex Sketch
+    if (drawingMode === 'polygon' && draftPolygonVertices.length >= 1) {
+      if (draftPolygonVertices.length >= 3) {
         ctx.beginPath();
-        activeCircle.forEach((pt, idx) => {
+        draftPolygonVertices.forEach((pt, idx) => {
           const sp = toScreen(pt.lng, pt.lat);
           if (idx === 0) ctx.moveTo(sp.x, sp.y);
           else ctx.lineTo(sp.x, sp.y);
         });
         ctx.closePath();
+        ctx.fillStyle = isSatellite
+          ? 'rgba(251, 191, 36, 0.12)'
+          : 'rgba(217, 119, 6, 0.08)';
+        ctx.fill();
+      }
 
-        if (coverageConfig.showCityBoundaries) {
-          ctx.fillStyle = isSatellite
-            ? 'rgba(56, 189, 248, 0.08)'
-            : 'rgba(2, 132, 199, 0.05)';
-          ctx.fill();
-        }
+      ctx.beginPath();
+      draftPolygonVertices.forEach((pt, idx) => {
+        const sp = toScreen(pt.lng, pt.lat);
+        if (idx === 0) ctx.moveTo(sp.x, sp.y);
+        else ctx.lineTo(sp.x, sp.y);
+      });
+      ctx.lineWidth = 2.1;
+      ctx.strokeStyle = isSatellite ? '#fde047' : '#d97706';
+      ctx.stroke();
 
+      const liveCursor = cursorLatLngRef.current;
+      if (liveCursor) {
+        const lastVertex = draftPolygonVertices[draftPolygonVertices.length - 1];
+        const lastSp = toScreen(lastVertex.lng, lastVertex.lat);
+        const curSp = toScreen(liveCursor.lng, liveCursor.lat);
         ctx.save();
-        ctx.setLineDash([8, 5]);
-        ctx.lineWidth = 2.1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(lastSp.x, lastSp.y);
+        ctx.lineTo(curSp.x, curSp.y);
+        if (draftPolygonVertices.length >= 2) {
+          const firstSp = toScreen(draftPolygonVertices[0].lng, draftPolygonVertices[0].lat);
+          ctx.lineTo(firstSp.x, firstSp.y);
+        }
+        ctx.lineWidth = 1.5;
         ctx.strokeStyle = isSatellite
-          ? 'rgba(125, 211, 252, 0.92)'
-          : 'rgba(3, 105, 161, 0.88)';
+          ? 'rgba(253, 224, 71, 0.85)'
+          : 'rgba(180, 83, 9, 0.80)';
         ctx.stroke();
         ctx.restore();
+      }
 
-        // Center anchor crosshair
-        const centerSp = toScreen(customAreaPlan.center.lng, customAreaPlan.center.lat);
+      draftPolygonVertices.forEach((pt, idx) => {
+        const sp = toScreen(pt.lng, pt.lat);
+        const isStartClosable = idx === 0 && draftPolygonVertices.length >= 3;
         ctx.beginPath();
-        ctx.arc(centerSp.x, centerSp.y, 4.2, 0, Math.PI * 2);
-        ctx.fillStyle = isSatellite ? '#38bdf8' : '#0369a1';
+        ctx.arc(sp.x, sp.y, isStartClosable ? 5.5 : 3.8, 0, Math.PI * 2);
+        ctx.fillStyle = isStartClosable
+          ? '#059669'
+          : isSatellite
+            ? '#fde047'
+            : '#d97706';
         ctx.fill();
         ctx.lineWidth = 1.6;
         ctx.strokeStyle = '#ffffff';
         ctx.stroke();
-      }
-
-      if (hasDistinctDraft && customDraftArea) {
-        const draftCircle = buildGeographicCircleRing(
-          customDraftArea.center,
-          customDraftArea.radiusKm * 1000,
-          96
-        );
-        ctx.beginPath();
-        draftCircle.forEach((pt, idx) => {
-          const sp = toScreen(pt.lng, pt.lat);
-          if (idx === 0) ctx.moveTo(sp.x, sp.y);
-          else ctx.lineTo(sp.x, sp.y);
-        });
-        ctx.closePath();
-
-        ctx.fillStyle = isSatellite
-          ? 'rgba(251, 191, 36, 0.09)'
-          : 'rgba(217, 119, 6, 0.06)';
-        ctx.fill();
-
-        ctx.save();
-        ctx.setLineDash([5, 5]);
-        ctx.lineWidth = 1.9;
-        ctx.strokeStyle = isSatellite
-          ? 'rgba(253, 224, 71, 0.92)'
-          : 'rgba(180, 83, 9, 0.86)';
-        ctx.stroke();
-        ctx.restore();
-
-        const draftSp = toScreen(customDraftArea.center.lng, customDraftArea.center.lat);
-        ctx.beginPath();
-        ctx.moveTo(draftSp.x - 8, draftSp.y);
-        ctx.lineTo(draftSp.x + 8, draftSp.y);
-        ctx.moveTo(draftSp.x, draftSp.y - 8);
-        ctx.lineTo(draftSp.x, draftSp.y + 8);
-        ctx.lineWidth = 1.8;
-        ctx.strokeStyle = isSatellite ? '#fde047' : '#b45309';
-        ctx.stroke();
-      }
+      });
     }
 
-    if (coverageConfig.showAccidentHotspots) {
+    // 7.3. Historical Collision Hotspots inside Active Areas of Interest
+    if (coverageConfig.showAccidentHotspots && areasOfInterest.length > 0) {
       const baseRadius =
         zoom < 7 ? 6 : zoom < 9 ? 9.5 : zoom < 11 ? 14 : zoom < 13 ? 21 : 30;
 
-      const hotspotSets: Array<Array<[number, number, number]>> =
-        planScope === 'custom'
-          ? customAreaPlan
-            ? [customAreaPlan.hotspots]
-            : []
-          : citiesToDraw.map((c) => c.hotspots);
-
       ctx.beginPath();
-      for (const hList of hotspotSets) {
-        for (const [lng, lat, count] of hList) {
+      for (const area of areasOfInterest) {
+        for (const [lng, lat, count] of area.hotspots) {
           const pt = toScreen(lng, lat);
           const r = baseRadius * Math.min(1.45, 0.72 + Math.log1p(count) * 0.18);
           if (pt.x < -r || pt.x > width + r || pt.y < -r || pt.y > height + r) {
@@ -779,8 +775,8 @@ export function CanvasFinlandMap({
       ctx.fill();
 
       ctx.beginPath();
-      for (const hList of hotspotSets) {
-        for (const [lng, lat, count] of hList) {
+      for (const area of areasOfInterest) {
+        for (const [lng, lat, count] of area.hotspots) {
           if (count < 6) continue;
           const pt = toScreen(lng, lat);
           const rCore = baseRadius * 0.52 * Math.min(1.4, 0.75 + Math.log1p(count) * 0.16);
@@ -795,42 +791,28 @@ export function CanvasFinlandMap({
       ctx.fill();
     }
 
-    // 7.5. Crossing Event Simulation Heatmaps (clipped strictly to covered cities or custom radius circle)
+    // 7.5. Crossing Event Simulation Heatmaps (clipped strictly to user-added Areas of Interest)
     if (
+      areasOfInterest.length > 0 &&
       evaluatedEvents.length > 0 &&
       (simulatorConfig.showMissedHeatmap || simulatorConfig.showDetectedHeatmap)
     ) {
-      const coveredCityIdSet = new Set(visibleCameras.map((c) => c.cityId));
       const baseHeatRadius =
         zoom < 6.5 ? 16 : zoom < 8.5 ? 22 : zoom < 10.5 ? 28 : zoom < 12.8 ? 34 : 42;
 
       ctx.save();
       ctx.beginPath();
-      if (planScope === 'custom' && customAreaPlan) {
-        const clipCircle = buildGeographicCircleRing(
-          customAreaPlan.center,
-          customAreaPlan.radiusKm * 1000,
-          96
-        );
-        clipCircle.forEach((pt, idx) => {
+      for (const area of areasOfInterest) {
+        const clipPoly =
+          area.polygon.length >= 3
+            ? area.polygon
+            : buildGeographicCircleRing(area.center, area.radiusKm * 1000, 72);
+        clipPoly.forEach((pt, idx) => {
           const sp = toScreen(pt.lng, pt.lat);
           if (idx === 0) ctx.moveTo(sp.x, sp.y);
           else ctx.lineTo(sp.x, sp.y);
         });
         ctx.closePath();
-      } else {
-        for (const city of citiesToDraw) {
-          if (!coveredCityIdSet.has(city.id)) continue;
-          for (const ring of city.borderLines) {
-            if (ring.length < 3) continue;
-            ring.forEach(([lng, lat], idx) => {
-              const pt = toScreen(lng, lat);
-              if (idx === 0) ctx.moveTo(pt.x, pt.y);
-              else ctx.lineTo(pt.x, pt.y);
-            });
-            ctx.closePath();
-          }
-        }
       }
       ctx.clip();
 
@@ -838,7 +820,9 @@ export function CanvasFinlandMap({
         const missedSprite = getHeatmapKernel('missed', isSatellite);
         for (const ev of evaluatedEvents) {
           if (ev.detected) continue;
-          const pt = toScreen(ev.lng, ev.lat);
+          const hLng = ev.hasRoadCrossingLine ? ev.roadLng : ev.lng;
+          const hLat = ev.hasRoadCrossingLine ? ev.roadLat : ev.lat;
+          const pt = toScreen(hLng, hLat);
           const r = baseHeatRadius * (ev.animalSize === 'large' ? 1.12 : 0.88);
           if (pt.x < -r || pt.x > width + r || pt.y < -r || pt.y > height + r) {
             continue;
@@ -851,7 +835,9 @@ export function CanvasFinlandMap({
         const detectedSprite = getHeatmapKernel('detected', isSatellite);
         for (const ev of evaluatedEvents) {
           if (!ev.detected) continue;
-          const pt = toScreen(ev.lng, ev.lat);
+          const hLng = ev.hasRoadCrossingLine ? ev.roadLng : ev.lng;
+          const hLat = ev.hasRoadCrossingLine ? ev.roadLat : ev.lat;
+          const pt = toScreen(hLng, hLat);
           const r = baseHeatRadius * (ev.animalSize === 'large' ? 1.12 : 0.88);
           if (pt.x < -r || pt.x > width + r || pt.y < -r || pt.y > height + r) {
             continue;
@@ -863,18 +849,14 @@ export function CanvasFinlandMap({
       ctx.restore();
     }
 
-    // 8. Planned Cameras (500 nodes) & Area Covered by Each Camera
+    // 8. Plotted Roadside Cameras & Directional Road Coverage Cones (strict 1:1 physical ground scale)
     const metersPerPx = calculateGroundResolutionMetersPerPixel(center.lat, zoom);
     const trueCoveragePx = coverageConfig.rangeMeters / Math.max(0.05, metersPerPx);
-    const minVisualCoveragePx = zoom < 6.8 ? 4.5 : zoom < 9.2 ? 7.0 : zoom < 12.2 ? 9.5 : 0;
-    const effectiveRangeMeters =
-      trueCoveragePx < minVisualCoveragePx
-        ? minVisualCoveragePx * metersPerPx
-        : coverageConfig.rangeMeters;
+    const effectiveRangeMeters = coverageConfig.rangeMeters;
 
-    if (coverageConfig.showCoverageAreas) {
+    if (coverageConfig.showCoverageAreas && visibleCameras.length > 0 && trueCoveragePx >= 0.6) {
       const cullMargin = Math.max(24, effectiveRangeMeters / metersPerPx + 16);
-      const arcSteps = zoom >= 11.5 ? 16 : 10;
+      const arcSteps = zoom >= 11.5 ? 18 : 12;
       let selectedCamForSector: PlannedCameraNode | null = null;
 
       ctx.beginPath();
@@ -893,31 +875,91 @@ export function CanvasFinlandMap({
           continue;
         }
 
-        const poly = computeCameraSectorPolygon(
+        const polys = computeCameraCoveragePolygons(
           cam,
           effectiveRangeMeters,
           coverageConfig.fovDeg,
           arcSteps
         );
-        poly.forEach((pt: LatLngPoint, idx: number) => {
-          const sp = toScreen(pt.lng, pt.lat);
-          if (idx === 0) ctx.moveTo(sp.x, sp.y);
-          else ctx.lineTo(sp.x, sp.y);
-        });
-        ctx.closePath();
+        for (const poly of polys) {
+          poly.forEach((pt: LatLngPoint, idx: number) => {
+            const sp = toScreen(pt.lng, pt.lat);
+            if (idx === 0) ctx.moveTo(sp.x, sp.y);
+            else ctx.lineTo(sp.x, sp.y);
+          });
+          ctx.closePath();
+        }
       }
 
       ctx.fillStyle = isSatellite
-        ? 'rgba(56, 189, 248, 0.25)'
-        : 'rgba(8, 145, 178, 0.22)';
+        ? 'rgba(56, 189, 248, 0.26)'
+        : 'rgba(8, 145, 178, 0.23)';
       ctx.strokeStyle = isSatellite
-        ? 'rgba(125, 211, 252, 0.82)'
-        : 'rgba(14, 116, 144, 0.74)';
-      ctx.lineWidth = zoom >= 10.5 ? 1.3 : 1.0;
+        ? 'rgba(125, 211, 252, 0.85)'
+        : 'rgba(14, 116, 144, 0.78)';
+      ctx.lineWidth = zoom >= 12.0 ? 1.4 : 1.05;
       ctx.fill();
       ctx.stroke();
 
-      if (zoom >= 9.3 && coverageConfig.fovDeg < 359) {
+      // Optional 70% small-animal inner range arc when user enables small-animal range scaling
+      if (
+        simulatorConfig.scaleRangeByAnimalSize &&
+        evaluatedEvents.length > 0 &&
+        trueCoveragePx >= 10
+      ) {
+        const smallRangeM = effectiveRangeMeters * SMALL_ANIMAL_RANGE_FACTOR;
+        const clampedFov = Math.max(1, Math.min(360, coverageConfig.fovDeg));
+        const halfFov = clampedFov / 2;
+        const gateSteps = Math.max(8, Math.ceil(clampedFov / 6));
+
+        ctx.save();
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        for (const cam of visibleCameras) {
+          const originScreen = toScreen(cam.lng, cam.lat);
+          if (
+            originScreen.x < -cullMargin ||
+            originScreen.x > width + cullMargin ||
+            originScreen.y < -cullMargin ||
+            originScreen.y > height + cullMargin
+          ) {
+            continue;
+          }
+          const [b1, b2] = getCameraBearings(cam);
+          const gap1 = (((b2 - b1) % 360) + 360) % 360;
+          const gap2 = 360 - gap1;
+          const isFullDisk = clampedFov >= gap1 - 0.25 && clampedFov >= gap2 - 0.25;
+          if (isFullDisk) {
+            const diskSteps = Math.max(36, gateSteps * 2);
+            for (let i = 0; i <= diskSteps; i++) {
+              const bearing = (360 * i) / diskSteps;
+              const pt = destinationPoint({ lat: cam.lat, lng: cam.lng }, smallRangeM, bearing);
+              const sp = toScreen(pt.lng, pt.lat);
+              if (i === 0) ctx.moveTo(sp.x, sp.y);
+              else ctx.lineTo(sp.x, sp.y);
+            }
+          } else {
+            for (const lobeBearing of [b1, b2]) {
+              const startAngle = lobeBearing - halfFov;
+              for (let i = 0; i <= gateSteps; i++) {
+                const bearing = startAngle + (clampedFov * i) / gateSteps;
+                const pt = destinationPoint({ lat: cam.lat, lng: cam.lng }, smallRangeM, bearing);
+                const sp = toScreen(pt.lng, pt.lat);
+                if (i === 0) ctx.moveTo(sp.x, sp.y);
+                else ctx.lineTo(sp.x, sp.y);
+              }
+            }
+          }
+        }
+        ctx.lineWidth = 1.1;
+        ctx.strokeStyle = isSatellite
+          ? 'rgba(253, 224, 71, 0.75)'
+          : 'rgba(14, 116, 144, 0.65)';
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (trueCoveragePx >= 6 && coverageConfig.fovDeg < 180) {
         ctx.save();
         ctx.setLineDash([3, 3]);
         ctx.beginPath();
@@ -932,14 +974,16 @@ export function CanvasFinlandMap({
           ) {
             continue;
           }
-          const axisTip = destinationPoint(
-            { lat: cam.lat, lng: cam.lng },
-            effectiveRangeMeters,
-            cam.bearingDeg
-          );
-          const tipScreen = toScreen(axisTip.lng, axisTip.lat);
-          ctx.moveTo(originScreen.x, originScreen.y);
-          ctx.lineTo(tipScreen.x, tipScreen.y);
+          for (const lobeBearing of getCameraBearings(cam)) {
+            const axisTip = destinationPoint(
+              { lat: cam.lat, lng: cam.lng },
+              effectiveRangeMeters,
+              lobeBearing
+            );
+            const tipScreen = toScreen(axisTip.lng, axisTip.lat);
+            ctx.moveTo(originScreen.x, originScreen.y);
+            ctx.lineTo(tipScreen.x, tipScreen.y);
+          }
         }
         ctx.lineWidth = 1.0;
         ctx.strokeStyle = isSatellite
@@ -951,19 +995,21 @@ export function CanvasFinlandMap({
 
       if (selectedCamForSector) {
         const originScreen = toScreen(selectedCamForSector.lng, selectedCamForSector.lat);
-        const poly = computeCameraSectorPolygon(
+        const polys = computeCameraCoveragePolygons(
           selectedCamForSector,
           effectiveRangeMeters,
           coverageConfig.fovDeg,
-          18
+          20
         );
         ctx.beginPath();
-        poly.forEach((pt: LatLngPoint, idx: number) => {
-          const sp = toScreen(pt.lng, pt.lat);
-          if (idx === 0) ctx.moveTo(sp.x, sp.y);
-          else ctx.lineTo(sp.x, sp.y);
-        });
-        ctx.closePath();
+        for (const poly of polys) {
+          poly.forEach((pt: LatLngPoint, idx: number) => {
+            const sp = toScreen(pt.lng, pt.lat);
+            if (idx === 0) ctx.moveTo(sp.x, sp.y);
+            else ctx.lineTo(sp.x, sp.y);
+          });
+          ctx.closePath();
+        }
         ctx.fillStyle = isSatellite
           ? 'rgba(251, 191, 36, 0.38)'
           : 'rgba(217, 119, 6, 0.28)';
@@ -972,18 +1018,20 @@ export function CanvasFinlandMap({
         ctx.fill();
         ctx.stroke();
 
-        if (coverageConfig.fovDeg < 359) {
-          const axisTip = destinationPoint(
-            { lat: selectedCamForSector.lat, lng: selectedCamForSector.lng },
-            effectiveRangeMeters,
-            selectedCamForSector.bearingDeg
-          );
-          const tipScreen = toScreen(axisTip.lng, axisTip.lat);
+        if (coverageConfig.fovDeg < 180) {
           ctx.save();
           ctx.setLineDash([3, 3]);
           ctx.beginPath();
-          ctx.moveTo(originScreen.x, originScreen.y);
-          ctx.lineTo(tipScreen.x, tipScreen.y);
+          for (const lobeBearing of getCameraBearings(selectedCamForSector)) {
+            const axisTip = destinationPoint(
+              { lat: selectedCamForSector.lat, lng: selectedCamForSector.lng },
+              effectiveRangeMeters,
+              lobeBearing
+            );
+            const tipScreen = toScreen(axisTip.lng, axisTip.lat);
+            ctx.moveTo(originScreen.x, originScreen.y);
+            ctx.lineTo(tipScreen.x, tipScreen.y);
+          }
           ctx.lineWidth = 1.6;
           ctx.strokeStyle = isSatellite ? '#fef08a' : '#92400e';
           ctx.stroke();
@@ -992,17 +1040,15 @@ export function CanvasFinlandMap({
       }
     }
 
-    // 9. Camera Hardware Nodes (color-coded by sector S1–S5 in full overview, or priority tier when inspecting 1 sector)
+    // 9. Camera Hardware Nodes
     const nodeRadius =
       zoom < 6.8
-        ? 2.2
+        ? 2.4
         : zoom < 9.2
-          ? 3.1
-          : zoom < 11.8
-            ? 4.0
-            : Math.min(4.8, Math.max(3.2, trueCoveragePx * 0.45));
-    const isRotationalPlan =
-      planScope !== 'custom' && isArrangementRotational(simulatorConfig.arrangementId);
+          ? 3.0
+          : zoom < 12.2
+            ? 2.8
+            : Math.min(4.4, Math.max(2.8, trueCoveragePx * 0.22));
     let selectedCamObj: PlannedCameraNode | null = null;
 
     for (const cam of visibleCameras) {
@@ -1015,22 +1061,17 @@ export function CanvasFinlandMap({
 
       ctx.beginPath();
       ctx.arc(sp.x, sp.y, nodeRadius, 0, Math.PI * 2);
-      if (isRotationalPlan && selectedSector === 'all') {
-        const secStyle = SECTOR_PALETTE[cam.sectorIndex];
-        ctx.fillStyle = isSatellite ? secStyle.dotSat : secStyle.dotBase;
+      const tier = getCameraPriorityTier(cam.rankInCity);
+      if (tier === 'critical') {
+        ctx.fillStyle = isSatellite ? '#fb7185' : '#be123c';
+      } else if (tier === 'high') {
+        ctx.fillStyle = isSatellite ? '#38bdf8' : '#0369a1';
       } else {
-        const tier = getCameraPriorityTier(cam.rankInSector);
-        if (tier === 'critical') {
-          ctx.fillStyle = isSatellite ? '#fb7185' : '#be123c';
-        } else if (tier === 'high') {
-          ctx.fillStyle = isSatellite ? '#38bdf8' : '#0369a1';
-        } else {
-          ctx.fillStyle = isSatellite ? '#2dd4bf' : '#0f766e';
-        }
+        ctx.fillStyle = isSatellite ? '#2dd4bf' : '#0f766e';
       }
       ctx.fill();
 
-      if (zoom >= 8.6) {
+      if (zoom >= 8.2) {
         ctx.lineWidth = 1.4;
         ctx.strokeStyle = isSatellite ? '#082f49' : '#ffffff';
         ctx.stroke();
@@ -1073,7 +1114,7 @@ export function CanvasFinlandMap({
       ctx.fillText(selectedCamObj.id, sp.x, sp.y - nodeRadius - 5);
     }
 
-    // 9.5. Individual Crossing Event Diamond Pins (zoom >= 11x or selected event)
+    // 9.5. Normal-Incidence Animal Road-Crossing Trajectories & Event Pins (zoom >= 11x or selected event)
     if (
       evaluatedEvents.length > 0 &&
       ((simulatorConfig.showEventPoints && zoom >= 11.0) || selectedCrossingEventId !== null)
@@ -1081,6 +1122,32 @@ export function CanvasFinlandMap({
       const onlyOneLayerActive =
         simulatorConfig.showDetectedHeatmap !== simulatorConfig.showMissedHeatmap;
       let selectedEvObj: EvaluatedCrossingEvent | null = null;
+
+      const drawArrowHead = (
+        fromX: number,
+        fromY: number,
+        toX: number,
+        toY: number,
+        headLen: number,
+        color: string
+      ) => {
+        const segLen = Math.hypot(toX - fromX, toY - fromY);
+        if (segLen < 7) return;
+        const angle = Math.atan2(toY - fromY, toX - fromX);
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(
+          toX - headLen * Math.cos(angle - Math.PI / 6),
+          toY - headLen * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.lineTo(
+          toX - headLen * Math.cos(angle + Math.PI / 6),
+          toY - headLen * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+      };
 
       for (const ev of evaluatedEvents) {
         if (ev.eventId === selectedCrossingEventId) {
@@ -1095,63 +1162,136 @@ export function CanvasFinlandMap({
           if (!ev.detected && !simulatorConfig.showMissedHeatmap) continue;
         }
 
-        const sp = toScreen(ev.lng, ev.lat);
-        if (sp.x < -14 || sp.x > width + 14 || sp.y < -14 || sp.y > height + 14) continue;
+        const startSp = toScreen(ev.crossingStartLng, ev.crossingStartLat);
+        const endSp = toScreen(ev.crossingEndLng, ev.crossingEndLat);
+        const animalSp = toScreen(ev.lng, ev.lat);
 
-        const d = (ev.animalSize === 'large' ? 4.8 : 3.6) * (zoom >= 14 ? 1.2 : 1.0);
+        const minX = Math.min(startSp.x, endSp.x, animalSp.x);
+        const maxX = Math.max(startSp.x, endSp.x, animalSp.x);
+        const minY = Math.min(startSp.y, endSp.y, animalSp.y);
+        const maxY = Math.max(startSp.y, endSp.y, animalSp.y);
+        if (maxX < -20 || minX > width + 20 || maxY < -20 || minY > height + 20) continue;
+
+        const strokeColor = ev.detected
+          ? isSatellite
+            ? '#34d399'
+            : '#059669'
+          : isSatellite
+            ? '#fb7185'
+            : '#e11d48';
+
+        // Draw normal-incidence crossing line from animal position through closest road
+        if (ev.hasRoadCrossingLine) {
+          const pxLen = Math.hypot(endSp.x - startSp.x, endSp.y - startSp.y);
+          if (pxLen >= 2.2) {
+            ctx.beginPath();
+            ctx.moveTo(startSp.x, startSp.y);
+            ctx.lineTo(endSp.x, endSp.y);
+            ctx.lineWidth = zoom >= 13.5 ? 2.1 : 1.6;
+            ctx.strokeStyle = strokeColor;
+            ctx.stroke();
+
+            if (zoom >= 12.6 && pxLen >= 9) {
+              drawArrowHead(
+                startSp.x,
+                startSp.y,
+                endSp.x,
+                endSp.y,
+                zoom >= 14.2 ? 5.6 : 4.5,
+                strokeColor
+              );
+            }
+          }
+        }
+
+        // Animal starting spot diamond marker
+        const d = (ev.animalSize === 'large' ? 4.4 : 3.4) * (zoom >= 14 ? 1.15 : 1.0);
         ctx.beginPath();
-        ctx.moveTo(sp.x, sp.y - d);
-        ctx.lineTo(sp.x + d, sp.y);
-        ctx.lineTo(sp.x, sp.y + d);
-        ctx.lineTo(sp.x - d, sp.y);
+        ctx.moveTo(animalSp.x, animalSp.y - d);
+        ctx.lineTo(animalSp.x + d, animalSp.y);
+        ctx.lineTo(animalSp.x, animalSp.y + d);
+        ctx.lineTo(animalSp.x - d, animalSp.y);
         ctx.closePath();
 
         ctx.fillStyle = ev.detected ? '#10b981' : '#f43f5e';
         ctx.fill();
-        ctx.lineWidth = 1.3;
+        ctx.lineWidth = 1.2;
         ctx.strokeStyle = isSatellite ? '#0f172a' : '#ffffff';
         ctx.stroke();
-
-        if (!ev.detected && d >= 4.0) {
-          ctx.beginPath();
-          ctx.arc(sp.x, sp.y, 1.1, 0, Math.PI * 2);
-          ctx.fillStyle = '#ffffff';
-          ctx.fill();
-        }
       }
 
       if (selectedEvObj) {
-        const sp = toScreen(selectedEvObj.lng, selectedEvObj.lat);
-        const d = 7.0;
+        const startSp = toScreen(selectedEvObj.crossingStartLng, selectedEvObj.crossingStartLat);
+        const roadSp = toScreen(selectedEvObj.roadLng, selectedEvObj.roadLat);
+        const endSp = toScreen(selectedEvObj.crossingEndLng, selectedEvObj.crossingEndLat);
+        const animalSp = toScreen(selectedEvObj.lng, selectedEvObj.lat);
+        const primaryStroke = selectedEvObj.detected ? '#059669' : '#e11d48';
 
+        if (selectedEvObj.hasRoadCrossingLine) {
+          // Contrast halo along normal-incidence crossing trajectory
+          ctx.beginPath();
+          ctx.moveTo(startSp.x, startSp.y);
+          ctx.lineTo(endSp.x, endSp.y);
+          ctx.lineWidth = 6.0;
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = isSatellite
+            ? 'rgba(251, 191, 36, 0.45)'
+            : 'rgba(255, 255, 255, 0.92)';
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(startSp.x, startSp.y);
+          ctx.lineTo(endSp.x, endSp.y);
+          ctx.lineWidth = 2.8;
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = primaryStroke;
+          ctx.stroke();
+          ctx.lineCap = 'butt';
+
+          drawArrowHead(startSp.x, startSp.y, endSp.x, endSp.y, 7.0, primaryStroke);
+
+          // Perpendicular road-incidence intersection ring
+          ctx.beginPath();
+          ctx.arc(roadSp.x, roadSp.y, 3.6, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          ctx.lineWidth = 1.8;
+          ctx.strokeStyle = primaryStroke;
+          ctx.stroke();
+        }
+
+        const d = 6.8;
         ctx.beginPath();
-        ctx.moveTo(sp.x, sp.y - (d + 4));
-        ctx.lineTo(sp.x + (d + 4), sp.y);
-        ctx.lineTo(sp.x, sp.y + (d + 4));
-        ctx.lineTo(sp.x - (d + 4), sp.y);
+        ctx.moveTo(animalSp.x, animalSp.y - (d + 4));
+        ctx.lineTo(animalSp.x + (d + 4), animalSp.y);
+        ctx.lineTo(animalSp.x, animalSp.y + (d + 4));
+        ctx.lineTo(animalSp.x - (d + 4), animalSp.y);
         ctx.closePath();
         ctx.fillStyle = isSatellite ? 'rgba(251, 191, 36, 0.38)' : 'rgba(217, 119, 6, 0.30)';
         ctx.fill();
 
         ctx.beginPath();
-        ctx.moveTo(sp.x, sp.y - d);
-        ctx.lineTo(sp.x + d, sp.y);
-        ctx.lineTo(sp.x, sp.y + d);
-        ctx.lineTo(sp.x - d, sp.y);
+        ctx.moveTo(animalSp.x, animalSp.y - d);
+        ctx.lineTo(animalSp.x + d, animalSp.y);
+        ctx.lineTo(animalSp.x, animalSp.y + d);
+        ctx.lineTo(animalSp.x - d, animalSp.y);
         ctx.closePath();
-        ctx.fillStyle = selectedEvObj.detected ? '#059669' : '#e11d48';
+        ctx.fillStyle = primaryStroke;
         ctx.fill();
         ctx.lineWidth = 2.0;
         ctx.strokeStyle = '#ffffff';
         ctx.stroke();
 
-        const tag = `${selectedEvObj.eventId} · ${selectedEvObj.detected ? 'DETECTED' : 'MISSED'}`;
+        const labelAnchor = selectedEvObj.hasRoadCrossingLine ? roadSp : animalSp;
+        const tag = `${selectedEvObj.eventId} · ${
+          selectedEvObj.detected ? 'DETECTED' : 'MISSED'
+        }`;
         ctx.font = '700 10.5px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.lineWidth = 3.5;
         ctx.strokeStyle = isSatellite ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.96)';
-        ctx.strokeText(tag, sp.x, sp.y + d + 6);
+        ctx.strokeText(tag, labelAnchor.x, Math.max(labelAnchor.y, animalSp.y) + d + 6);
         ctx.fillStyle = selectedEvObj.detected
           ? isSatellite
             ? '#6ee7b7'
@@ -1159,71 +1299,7 @@ export function CanvasFinlandMap({
           : isSatellite
             ? '#fda4af'
             : '#9f1239';
-        ctx.fillText(tag, sp.x, sp.y + d + 6);
-      }
-    }
-
-    // 9.8. Deployment Sector Schedule Callout Labels (S1–S5) inside each municipality
-    if (coverageConfig.showDeploymentSectors && zoom >= 7.8) {
-      for (const city of citiesToDraw) {
-        for (const sec of city.sectors) {
-          const sp = toScreen(sec.center.lng, sec.center.lat);
-          if (sp.x < -70 || sp.x > width + 70 || sp.y < -40 || sp.y > height + 40) continue;
-          const style = SECTOR_PALETTE[sec.sectorIndex];
-          const isFocused = selectedSector === sec.sectorIndex;
-          const isDimmed = selectedSector !== 'all' && !isFocused;
-
-          ctx.textAlign = 'center';
-          if (zoom < 10.3) {
-            const shortTag = `S${sec.sectorIndex}`;
-            ctx.font = `${isFocused ? 800 : 700} 10.5px "JetBrains Mono", monospace`;
-            ctx.textBaseline = 'middle';
-            ctx.lineWidth = 3.5;
-            ctx.strokeStyle = isSatellite
-              ? 'rgba(7, 25, 41, 0.92)'
-              : 'rgba(255, 255, 255, 0.96)';
-            ctx.strokeText(shortTag, sp.x, sp.y);
-            ctx.fillStyle = isDimmed
-              ? isSatellite
-                ? 'rgba(203, 213, 225, 0.65)'
-                : 'rgba(100, 116, 139, 0.72)'
-              : isSatellite
-                ? style.dotSat
-                : style.hex;
-            ctx.fillText(shortTag, sp.x, sp.y);
-          } else {
-            const topLine = `S${sec.sectorIndex} · ${sec.directionLabel}`;
-            const subLine = sec.shortPeriod;
-            ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
-            ctx.textBaseline = 'bottom';
-            ctx.lineWidth = 3.6;
-            ctx.strokeStyle = isSatellite
-              ? 'rgba(7, 25, 41, 0.94)'
-              : 'rgba(255, 255, 255, 0.96)';
-            ctx.strokeText(topLine, sp.x, sp.y - 1);
-            ctx.fillStyle = isDimmed
-              ? isSatellite
-                ? 'rgba(203, 213, 225, 0.65)'
-                : 'rgba(100, 116, 139, 0.75)'
-              : isSatellite
-                ? '#f8fafc'
-                : style.hex;
-            ctx.fillText(topLine, sp.x, sp.y - 1);
-
-            ctx.font = '600 9.5px "JetBrains Mono", monospace';
-            ctx.textBaseline = 'top';
-            ctx.lineWidth = 3.2;
-            ctx.strokeText(subLine, sp.x, sp.y + 1);
-            ctx.fillStyle = isDimmed
-              ? isSatellite
-                ? 'rgba(148, 163, 184, 0.62)'
-                : 'rgba(100, 116, 139, 0.70)'
-              : isSatellite
-                ? style.dotSat
-                : '#334155';
-            ctx.fillText(subLine, sp.x, sp.y + 1);
-          }
-        }
+        ctx.fillText(tag, labelAnchor.x, Math.max(labelAnchor.y, animalSp.y) + d + 6);
       }
     }
 
@@ -1234,60 +1310,34 @@ export function CanvasFinlandMap({
     ctx.strokeStyle = isSatellite ? 'rgba(148, 163, 184, 0.55)' : '#94a3b8';
     ctx.stroke();
 
-    // 10. City Callout Labels with Leader Lines at Overview Zoom (< 9.2x)
-    if (zoom < 9.2) {
-      const labelOffsets: Record<string, { dx: number; dy: number; align: CanvasTextAlign }> = {
-        salo: { dx: -18, dy: -6, align: 'right' },
-        raasepori: { dx: 22, dy: 15, align: 'left' },
-        pori: { dx: -16, dy: -10, align: 'right' },
-        hameenlinna: { dx: 20, dy: 2, align: 'left' },
-        sastamala: { dx: 18, dy: -16, align: 'left' },
-      };
-
-      for (const city of citiesToDraw) {
-        const cp = toScreen(city.center.lng, city.center.lat);
-        if (cp.x < -80 || cp.x > width + 80 || cp.y < -50 || cp.y > height + 50) continue;
-        const off = labelOffsets[city.id] ?? { dx: 14, dy: -8, align: 'left' };
-        const tx = cp.x + off.dx;
-        const ty = cp.y + off.dy;
-        const label = `#${city.rank} ${city.name} · ${city.totalAccidents.toLocaleString()}`;
-
-        ctx.beginPath();
-        ctx.moveTo(cp.x, cp.y);
-        ctx.lineTo(tx + (off.align === 'right' ? 4 : -4), ty);
-        ctx.lineWidth = 1.2;
-        ctx.strokeStyle = isSatellite ? 'rgba(248, 250, 252, 0.65)' : 'rgba(15, 23, 42, 0.45)';
-        ctx.stroke();
-
-        ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
-        ctx.textAlign = off.align;
-        ctx.textBaseline = 'middle';
-        ctx.lineWidth = 3.5;
-        ctx.strokeStyle = isSatellite ? 'rgba(7, 25, 41, 0.92)' : 'rgba(255, 255, 255, 0.95)';
-        ctx.strokeText(label, tx, ty);
-        ctx.fillStyle = isSatellite ? '#f8fafc' : '#0f172a';
-        ctx.fillText(label, tx, ty);
-      }
-    }
-
-    // 10.5. Custom Radius Callout Label at North Perimeter
-    if (planScope === 'custom' && customAreaPlan && zoom < 11.2) {
-      const northRim = destinationPoint(
-        customAreaPlan.center,
-        customAreaPlan.radiusKm * 1000,
-        0
-      );
-      const sp = toScreen(northRim.lng, northRim.lat);
-      if (sp.x >= -120 && sp.x <= width + 120 && sp.y >= 16 && sp.y <= height - 16) {
-        const label = `${customAreaPlan.label} · ${customAreaPlan.radiusKm} km · ${customAreaPlan.totalAccidentsInRadius.toLocaleString()} acc`;
-        ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.lineWidth = 3.5;
-        ctx.strokeStyle = isSatellite ? 'rgba(7, 25, 41, 0.92)' : 'rgba(255, 255, 255, 0.96)';
-        ctx.strokeText(label, sp.x, sp.y - 6);
-        ctx.fillStyle = isSatellite ? '#bae6fd' : '#0369a1';
-        ctx.fillText(label, sp.x, sp.y - 6);
+    // 10. Area of Interest Callout Labels at Northernmost Edge (< 11.2x zoom)
+    if (areasOfInterest.length > 0 && zoom < 11.2) {
+      for (const area of areasOfInterest) {
+        let northPt = destinationPoint(area.center, area.radiusKm * 1000, 0);
+        if (area.polygon.length >= 3) {
+          northPt = area.polygon.reduce((best, p) => (p.lat > best.lat ? p : best));
+        }
+        const sp = toScreen(northPt.lng, northPt.lat);
+        if (sp.x >= -120 && sp.x <= width + 120 && sp.y >= 16 && sp.y <= height - 16) {
+          const isSelected = area.id === selectedAreaId;
+          const label = `${area.label} · ${area.areaKm2} km² · ${area.cameras.length} cam`;
+          ctx.font = isSelected
+            ? '700 11.5px "Plus Jakarta Sans", sans-serif'
+            : '600 11px "Plus Jakarta Sans", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.lineWidth = 3.5;
+          ctx.strokeStyle = isSatellite ? 'rgba(7, 25, 41, 0.92)' : 'rgba(255, 255, 255, 0.96)';
+          ctx.strokeText(label, sp.x, sp.y - 6);
+          ctx.fillStyle = isSatellite
+            ? isSelected
+              ? '#fde68a'
+              : '#bae6fd'
+            : isSelected
+              ? '#0c4a6e'
+              : '#0369a1';
+          ctx.fillText(label, sp.x, sp.y - 6);
+        }
       }
     }
 
@@ -1326,25 +1376,23 @@ export function CanvasFinlandMap({
 
     ctx.restore();
   }, [
+    areasOfInterest,
     coverageConfig,
-    customAreaPlan,
-    customDraftArea,
+    draftPolygonVertices,
+    drawingMode,
+    drawnPolygon,
     evaluatedEvents,
     getHeatmapKernel,
-    isPickingCustomCenter,
     mode,
-    planScope,
     requestTile,
+    selectedAreaId,
     selectedCameraId,
-    selectedCityId,
     selectedCrossingEventId,
-    selectedSector,
     showGraticule,
     showLabels,
     showTerrain,
     simulatorConfig,
     visibleCameras,
-    visibleCities,
   ]);
 
   const scheduleDraw = useCallback(() => {
@@ -1362,22 +1410,21 @@ export function CanvasFinlandMap({
   useEffect(() => {
     scheduleDraw();
   }, [
+    areasOfInterest,
     camera,
     mode,
     mapTypeId,
     showLabels,
     showTerrain,
     showGraticule,
-    selectedCityId,
-    selectedSector,
+    selectedAreaId,
     selectedCameraId,
     selectedCrossingEventId,
     coverageConfig,
-    customAreaPlan,
-    customDraftArea,
+    draftPolygonVertices,
+    drawingMode,
+    drawnPolygon,
     evaluatedEvents,
-    isPickingCustomCenter,
-    planScope,
     simulatorConfig,
     visibleCameras,
     scheduleDraw,
@@ -1427,6 +1474,21 @@ export function CanvasFinlandMap({
     };
   }, []);
 
+  const clampPointToFinland = (pt: LatLngPoint): LatLngPoint => ({
+    lat: Number(
+      Math.max(
+        FINLAND_GEOGRAPHIC_BOUNDS.south,
+        Math.min(FINLAND_GEOGRAPHIC_BOUNDS.north, pt.lat)
+      ).toFixed(5)
+    ),
+    lng: Number(
+      Math.max(
+        FINLAND_GEOGRAPHIC_BOUNDS.west,
+        Math.min(FINLAND_GEOGRAPHIC_BOUNDS.east, pt.lng)
+      ).toFixed(5)
+    ),
+  });
+
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     dragStateRef.current = {
@@ -1438,6 +1500,22 @@ export function CanvasFinlandMap({
       lastY: e.clientY,
       moved: false,
     };
+
+    if (drawingModeRef.current === 'freehand') {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const offsetX = e.clientX - (rect.left + rect.width / 2);
+      const offsetY = e.clientY - (rect.top + rect.height / 2);
+      const centerWorld = latLngToWorldPixel(cameraRef.current.center, cameraRef.current.zoom);
+      const startPt = clampPointToFinland(
+        worldPixelToLatLng(
+          { x: centerWorld.x + offsetX, y: centerWorld.y + offsetY },
+          cameraRef.current.zoom
+        )
+      );
+      freehandStrokeRef.current = [startPt];
+      freehandLastScreenRef.current = { x: e.clientX, y: e.clientY };
+      scheduleDrawRef.current();
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1449,9 +1527,30 @@ export function CanvasFinlandMap({
       { x: centerWorld.x + offsetX, y: centerWorld.y + offsetY },
       cameraRef.current.zoom
     );
-    onCursorMove(isPointWithinFinlandBounds(cursorLatLng) ? cursorLatLng : null);
+    const inFinland = isPointWithinFinlandBounds(cursorLatLng);
+    cursorLatLngRef.current = inFinland ? cursorLatLng : null;
+    onCursorMove(inFinland ? cursorLatLng : null);
+
+    if (
+      drawingModeRef.current === 'polygon' &&
+      draftPolygonVerticesRef.current.length > 0 &&
+      !dragStateRef.current.active
+    ) {
+      scheduleDrawRef.current();
+    }
 
     if (!dragStateRef.current.active || dragStateRef.current.pointerId !== e.pointerId) {
+      return;
+    }
+
+    if (drawingModeRef.current === 'freehand') {
+      const prevScreen = freehandLastScreenRef.current;
+      if (!prevScreen || Math.hypot(e.clientX - prevScreen.x, e.clientY - prevScreen.y) >= 4) {
+        freehandStrokeRef.current.push(clampPointToFinland(cursorLatLng));
+        freehandLastScreenRef.current = { x: e.clientX, y: e.clientY };
+        dragStateRef.current.moved = true;
+        scheduleDrawRef.current();
+      }
       return;
     }
 
@@ -1490,6 +1589,21 @@ export function CanvasFinlandMap({
       dragStateRef.current.pointerId = -1;
     }
 
+    if (drawingModeRef.current === 'freehand') {
+      const rawStroke = freehandStrokeRef.current;
+      freehandStrokeRef.current = [];
+      freehandLastScreenRef.current = null;
+      scheduleDrawRef.current();
+
+      if (rawStroke.length >= 3) {
+        const simplified = simplifyLatLngRing(rawStroke);
+        if (simplified.length >= 3) {
+          onCompletePolygonRef.current?.(simplified);
+        }
+      }
+      return;
+    }
+
     if (!wasTap) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
@@ -1500,21 +1614,30 @@ export function CanvasFinlandMap({
     const topLeftX = centerWorld.x - rect.width / 2;
     const topLeftY = centerWorld.y - rect.height / 2;
 
-    if (isPickingCustomCenterRef.current && onPickCustomCenterRef.current) {
-      const clickedPoint = worldPixelToLatLng(
-        { x: topLeftX + clickX, y: topLeftY + clickY },
-        cur.zoom
-      );
+    const clickedPoint = worldPixelToLatLng(
+      { x: topLeftX + clickX, y: topLeftY + clickY },
+      cur.zoom
+    );
+
+    if (drawingModeRef.current === 'polygon') {
+      const vertices = draftPolygonVerticesRef.current;
+      if (vertices.length >= 3) {
+        const firstWp = latLngToWorldPixel(vertices[0], cur.zoom);
+        const firstSx = firstWp.x - topLeftX;
+        const firstSy = firstWp.y - topLeftY;
+        if (Math.hypot(firstSx - clickX, firstSy - clickY) <= 14) {
+          onCompletePolygonRef.current?.(vertices);
+          return;
+        }
+      }
+
       if (isPointWithinFinlandBounds(clickedPoint)) {
-        onPickCustomCenterRef.current({
-          lat: Number(clickedPoint.lat.toFixed(4)),
-          lng: Number(clickedPoint.lng.toFixed(4)),
-        });
+        onAddDraftVertexRef.current?.(clampPointToFinland(clickedPoint));
       }
       return;
     }
 
-    if (cur.zoom >= 8.2) {
+    if (cur.zoom >= 7.2) {
       let nearestCam: PlannedCameraNode | null = null;
       let nearestDist = 14;
       for (const cam of visibleCamerasRef.current) {
@@ -1537,13 +1660,35 @@ export function CanvasFinlandMap({
         simulatorConfigRef.current.showEventPoints &&
         evaluatedEventsRef.current.length > 0
       ) {
+        const simCfg = simulatorConfigRef.current;
+        const onlyOneLayerActive = simCfg.showDetectedHeatmap !== simCfg.showMissedHeatmap;
         let nearestEv: EvaluatedCrossingEvent | null = null;
         let nearestEvDist = 12;
         for (const ev of evaluatedEventsRef.current) {
-          const wp = latLngToWorldPixel({ lat: ev.lat, lng: ev.lng }, cur.zoom);
-          const sx = wp.x - topLeftX;
-          const sy = wp.y - topLeftY;
-          const d = Math.hypot(sx - clickX, sy - clickY);
+          if (onlyOneLayerActive) {
+            if (ev.detected && !simCfg.showDetectedHeatmap) continue;
+            if (!ev.detected && !simCfg.showMissedHeatmap) continue;
+          }
+          const wpStart = latLngToWorldPixel(
+            { lat: ev.crossingStartLat, lng: ev.crossingStartLng },
+            cur.zoom
+          );
+          const wpEnd = latLngToWorldPixel(
+            { lat: ev.crossingEndLat, lng: ev.crossingEndLng },
+            cur.zoom
+          );
+          const ax = wpStart.x - topLeftX;
+          const ay = wpStart.y - topLeftY;
+          const bx = wpEnd.x - topLeftX;
+          const by = wpEnd.y - topLeftY;
+          const vx = bx - ax;
+          const vy = by - ay;
+          const lenSq = vx * vx + vy * vy;
+          const t =
+            lenSq > 1e-6
+              ? Math.max(0, Math.min(1, ((clickX - ax) * vx + (clickY - ay) * vy) / lenSq))
+              : 0;
+          const d = Math.hypot(clickX - (ax + t * vx), clickY - (ay + t * vy));
           if (d <= nearestEvDist) {
             nearestEvDist = d;
             nearestEv = ev;
@@ -1556,48 +1701,13 @@ export function CanvasFinlandMap({
       }
     }
 
-    if (
-      planScopeRef.current !== 'custom' &&
-      cur.zoom >= 7.8 &&
-      coverageConfigRef.current.showDeploymentSectors
-    ) {
-      let nearestSecIndex: SectorFilter | null = null;
-      let nearestSecDist = 24;
-      for (const city of TOP_5_WILDLIFE_ACCIDENT_CITIES) {
-        for (const sec of city.sectors) {
-          const wp = latLngToWorldPixel(sec.center, cur.zoom);
-          const sx = wp.x - topLeftX;
-          const sy = wp.y - topLeftY;
-          const d = Math.hypot(sx - clickX, sy - clickY);
-          if (d <= nearestSecDist) {
-            nearestSecDist = d;
-            nearestSecIndex = sec.sectorIndex;
-          }
-        }
-      }
-      if (nearestSecIndex !== null) {
-        onSelectSector(
-          selectedSectorRef.current === nearestSecIndex ? 'all' : nearestSecIndex
-        );
-        return;
-      }
-    }
-
-    if (planScopeRef.current !== 'custom' && cur.zoom < 8.2) {
-      let nearestCity: CityCameraPlan | null = null;
-      let nearestCityDist = 32;
-      for (const city of TOP_5_WILDLIFE_ACCIDENT_CITIES) {
-        const wp = latLngToWorldPixel(city.center, cur.zoom);
-        const sx = wp.x - topLeftX;
-        const sy = wp.y - topLeftY;
-        const d = Math.hypot(sx - clickX, sy - clickY);
-        if (d <= nearestCityDist) {
-          nearestCityDist = d;
-          nearestCity = city;
-        }
-      }
-      if (nearestCity) {
-        onSelectCity(nearestCity);
+    for (let i = areasOfInterestRef.current.length - 1; i >= 0; i--) {
+      const area = areasOfInterestRef.current[i];
+      if (
+        area.polygon.length >= 3 &&
+        isPointInLatLngPolygon(clickedPoint.lat, clickedPoint.lng, area.polygon)
+      ) {
+        onSelectAreaRef.current(area);
         return;
       }
     }
@@ -1608,9 +1718,25 @@ export function CanvasFinlandMap({
       dragStateRef.current.active = false;
       dragStateRef.current.pointerId = -1;
     }
+    if (freehandStrokeRef.current.length > 0) {
+      freehandStrokeRef.current = [];
+      freehandLastScreenRef.current = null;
+      scheduleDrawRef.current();
+    }
   };
 
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (drawingModeRef.current === 'polygon') {
+      e.preventDefault();
+      if (draftPolygonVerticesRef.current.length >= 3) {
+        onCompletePolygonRef.current?.(draftPolygonVerticesRef.current);
+      }
+      return;
+    }
+    if (drawingModeRef.current === 'freehand') {
+      return;
+    }
+
     const rect = e.currentTarget.getBoundingClientRect();
     const dx = e.clientX - (rect.left + rect.width / 2);
     const dy = e.clientY - (rect.top + rect.height / 2);
@@ -1658,29 +1784,29 @@ export function CanvasFinlandMap({
       ref={containerRef}
       tabIndex={0}
       role="application"
-      aria-label={`Interactive Finland map in ${mode === 'satellite' ? 'Satellite' : 'Base Map'} mode at zoom ${camera.zoom.toFixed(1)} showing ${visibleCameras.length} planned wildlife cameras`}
+      aria-label={`Interactive Finland map in ${mode === 'satellite' ? 'Satellite' : 'Base Map'} mode at zoom ${camera.zoom.toFixed(1)} showing ${visibleCameras.length} planned wildlife cameras across ${areasOfInterest.length} areas of interest`}
       data-testid="finland-map-canvas"
       data-map-mode={mode}
       data-map-type={mapTypeId}
       data-zoom={camera.zoom.toFixed(2)}
       data-camera-count={visibleCameras.length}
-      data-selected-sector={String(selectedSector)}
+      data-areas-count={areasOfInterest.length}
       data-selected-year={String(simulatorConfig.selectedYear)}
-      data-arrangement={simulatorConfig.arrangementId}
       data-sim-events={evaluatedEvents.length}
-      data-plan-scope={planScope}
-      data-picking-center={isPickingCustomCenter ? 'true' : 'false'}
+      data-drawing-mode={drawingMode}
+      data-drawn-vertices={drawnPolygon.length}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
       onPointerLeave={() => {
+        cursorLatLngRef.current = null;
         onCursorMove(null);
       }}
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
       className={`w-full h-full relative outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-600 select-none touch-none ${
-        isPickingCustomCenter ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
+        drawingMode !== 'none' ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
       }`}
     >
       <canvas ref={canvasRef} className="w-full h-full block" />

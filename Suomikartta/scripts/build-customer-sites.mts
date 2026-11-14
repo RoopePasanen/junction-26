@@ -1,0 +1,159 @@
+/**
+ * Builds src/data/customerSites.ts from real Ramboll collision data (2021–2025).
+ *
+ *   npx tsx scripts/build-customer-sites.mts
+ *
+ * The demo customer is a regional road authority in western Uusimaa with one pilot
+ * site per real collision hotspot. For each site this computes the collision stats
+ * around it and places the warning units on the densest real collision points
+ * (collision points lie on roads, so the units do too). It also writes a coarse
+ * heat layer for the whole region. Run it again to change sites; output is static so
+ * the dashboard works offline on stage.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { buildCustomAreaCameraPlan } from '../src/server/rambollCustomPlanner.ts';
+import {
+  fetchRambollAccidentsInCircle,
+  groundDistanceM,
+  type DecodedRambollAccident,
+} from '../src/server/rambollLiveFetch.ts';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const OUT = path.join(here, '..', 'src', 'data', 'customerSites.ts');
+
+// Hotspot centres found by ranking 1.5 km cells by collisions in 2023–2025.
+const SITES = [
+  { id: 'kirkkonummi', name: 'Kirkkonummi · Masala', municipality: 'Kirkkonummi', lat: 60.168, lng: 24.5485, realUnit: 'sign-001' },
+  { id: 'mustio', name: 'Raasepori · Mustio', municipality: 'Raasepori', lat: 60.1665, lng: 23.7876 },
+  { id: 'hyvinkaa', name: 'Hyvinkää south', municipality: 'Hyvinkää', lat: 60.6281, lng: 24.8114 },
+  { id: 'roykka', name: 'Nurmijärvi · Röykkä', municipality: 'Nurmijärvi', lat: 60.5045, lng: 24.6239 },
+  { id: 'karkkila', name: 'Karkkila', municipality: 'Karkkila', lat: 60.5614, lng: 24.1925 },
+  { id: 'inkoo', name: 'Inkoo', municipality: 'Inkoo', lat: 60.061, lng: 24.0582 },
+];
+const SITE_RADIUS_KM = 2;
+const UNITS_PER_SITE = 3;
+const UNIT_SPACING_M = 450;
+const REGION = { lat: 60.34, lng: 24.35, radiusKm: 50 };
+const HEAT_CELL_DEG = 0.01; // ~1 km north–south
+
+const SPECIES: Record<number, string> = {
+  1: 'moose',
+  2: 'fallowDeer',
+  3: 'roeDeer',
+  4: 'forestReindeer',
+  5: 'whiteTailedDeer',
+};
+
+function stats(acc: DecodedRambollAccident[]) {
+  const byYear: Record<string, number> = {};
+  const bySpecies: Record<string, number> = {};
+  const byMonth = Array(12).fill(0) as number[];
+  for (const a of acc) {
+    byYear[a.year] = (byYear[a.year] ?? 0) + 1;
+    const sp = SPECIES[a.speciesClass] ?? 'other';
+    bySpecies[sp] = (bySpecies[sp] ?? 0) + 1;
+    if (a.month >= 1 && a.month <= 12) byMonth[a.month - 1]++;
+  }
+  return { total: acc.length, byYear, bySpecies, byMonth };
+}
+
+function placeUnits(acc: DecodedRambollAccident[], count: number) {
+  // Score each collision point by how many others lie within 300 m, pick greedily.
+  const scored = acc.map((a) => ({
+    a,
+    score: acc.reduce((n, b) => n + (groundDistanceM(a.lat, a.lng, b.lat, b.lng) <= 300 ? 1 : 0), 0),
+  }));
+  scored.sort((x, y) => y.score - x.score);
+  const picked: Array<{ lat: number; lng: number; nearby: number }> = [];
+  for (const s of scored) {
+    if (picked.every((p) => groundDistanceM(p.lat, p.lng, s.a.lat, s.a.lng) >= UNIT_SPACING_M)) {
+      picked.push({ lat: +s.a.lat.toFixed(5), lng: +s.a.lng.toFixed(5), nearby: s.score });
+    }
+    if (picked.length >= count) break;
+  }
+  return picked;
+}
+
+const region = await fetchRambollAccidentsInCircle(REGION.lat, REGION.lng, REGION.radiusKm);
+console.log(`region: ${region.length} collisions`);
+
+const heat = new Map<string, [number, number, number]>();
+for (const a of region) {
+  const ky = Math.round(a.lat / HEAT_CELL_DEG);
+  const kx = Math.round(a.lng / (HEAT_CELL_DEG * 2));
+  const k = `${ky},${kx}`;
+  const c = heat.get(k) ?? [+(kx * HEAT_CELL_DEG * 2).toFixed(3), +(ky * HEAT_CELL_DEG).toFixed(3), 0];
+  c[2]++;
+  heat.set(k, c);
+}
+
+// Road length inside each site circle: main public roads from Väylä (state roads +
+// Digiroad main collectors), computed the same way as the planner's roadNetworkKm.
+async function roadKm(lat: number, lng: number): Promise<number | null> {
+  try {
+    return (await buildCustomAreaCameraPlan({ lat, lng, radiusKm: SITE_RADIUS_KM })).roadNetworkKm;
+  } catch (err) {
+    console.warn(`road length failed at ${lat},${lng}: ${(err as Error).message}`);
+    return null;
+  }
+}
+
+const sites = [];
+for (const s of SITES) {
+  const acc = region.filter((a) => groundDistanceM(s.lat, s.lng, a.lat, a.lng) <= SITE_RADIUS_KM * 1000);
+  const units = placeUnits(acc, UNITS_PER_SITE).map((u, i) => ({
+    id: i === 0 && s.realUnit ? s.realUnit : `${s.id}-${String(i + 1).padStart(2, '0')}`,
+    real: i === 0 && !!s.realUnit,
+    ...u,
+  }));
+  const km = await roadKm(s.lat, s.lng);
+  console.log(`${s.name}: ${acc.length} collisions, ${km} km road, units ${units.map((u) => u.id).join(', ')}`);
+  sites.push({
+    id: s.id,
+    name: s.name,
+    municipality: s.municipality,
+    center: { lat: s.lat, lng: s.lng },
+    radiusKm: SITE_RADIUS_KM,
+    roadKm: km,
+    units,
+    collisions: stats(acc),
+  });
+}
+
+const out = `// Generated by scripts/build-customer-sites.mts from Ramboll collision data (2021–2025).
+// Do not edit by hand; change the script and run it again.
+
+export interface SiteUnit { id: string; real: boolean; lat: number; lng: number; nearby: number }
+export interface CollisionStats {
+  total: number;
+  byYear: Record<string, number>;
+  bySpecies: Record<string, number>;
+  byMonth: number[];
+}
+export interface CustomerSite {
+  id: string;
+  name: string;
+  municipality: string;
+  center: { lat: number; lng: number };
+  radiusKm: number;
+  /** km of main public road inside the site circle (Väylä), null if it couldn't be fetched */
+  roadKm: number | null;
+  units: SiteUnit[];
+  collisions: CollisionStats;
+}
+
+export const DATA_SOURCE = 'Ramboll / Finnish Wildlife Agency collision data 2021–2025';
+export const DATA_SOURCE_URL = 'https://mobilityanalytics.ramboll.com/onn/hirvielain/';
+export const GENERATED_AT = ${JSON.stringify(new Date().toISOString().slice(0, 10))};
+
+export const REGION = ${JSON.stringify({ ...REGION, collisions: stats(region) })} as const;
+
+export const CUSTOMER_SITES: CustomerSite[] = ${JSON.stringify(sites, null, 2)};
+
+/** [lng, lat, collisions 2021–2025] per ~1 km cell in the region */
+export const REGION_HEAT: Array<[number, number, number]> = ${JSON.stringify([...heat.values()])};
+`;
+fs.writeFileSync(OUT, out);
+console.log(`wrote ${OUT} (${(out.length / 1024).toFixed(0)} KB)`);

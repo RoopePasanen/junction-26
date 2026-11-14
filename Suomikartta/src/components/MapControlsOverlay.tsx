@@ -1,26 +1,21 @@
 import {
-  Crosshair,
+  Check,
   Eye,
   EyeOff,
+  Lasso,
   Layers,
   LocateFixed,
   Map as MapIcon,
   Minus,
+  Pentagon,
   Plus,
   SlidersHorizontal,
+  Undo2,
   X,
 } from 'lucide-react';
-import {
-  SECTOR_ROTATION_SCHEDULE,
-  type PlannedCameraNode,
-  type SectorFilter,
-} from '../data/finlandWildlifePlan';
+import type { PlannedCameraNode } from '../data/finlandWildlifePlan';
 import type { CameraCoverageConfig } from '../utils/cameraPlanGeometry';
-import {
-  isArrangementRotational,
-  type SimulationSummary,
-  type SimulatorConfig,
-} from '../utils/crossingSimulator';
+import type { SimulationSummary, SimulatorConfig } from '../utils/crossingSimulator';
 import {
   calculateScaleBar,
   formatLat,
@@ -31,7 +26,11 @@ import {
   type CameraState,
   type LatLngPoint,
 } from '../utils/mapMath';
-import type { CustomAreaPlanResult, PlanScopeMode } from '../types/customAreaPlan';
+import type {
+  CustomAreaPlanResult,
+  DrawingToolMode,
+} from '../types/customAreaPlan';
+import { computePolygonAreaKm2 } from '../utils/polygonGeometry';
 import { CameraSitePlanCard } from './CameraSitePlanCard';
 
 interface MapControlsOverlayProps {
@@ -43,15 +42,15 @@ interface MapControlsOverlayProps {
   showMapLegend: boolean;
   usingGoogleMaps: boolean;
   mobilePanelOpen: boolean;
-  selectedSector: SectorFilter;
   selectedCamera: PlannedCameraNode | null;
   coverageConfig: CameraCoverageConfig;
   visibleCameraCount: number;
   simulationSummary: SimulationSummary;
   simulatorConfig: SimulatorConfig;
-  planScope?: PlanScopeMode;
-  customAreaPlan?: CustomAreaPlanResult | null;
-  isPickingCustomCenter?: boolean;
+  areasOfInterest: CustomAreaPlanResult[];
+  drawingMode?: DrawingToolMode;
+  drawnPolygon?: LatLngPoint[];
+  draftPolygonVertices?: LatLngPoint[];
   onModeChange: (mode: BaseMapMode) => void;
   onToggleLabels: () => void;
   onToggleTerrain: () => void;
@@ -61,8 +60,12 @@ interface MapControlsOverlayProps {
   onResetFinlandView: () => void;
   onToggleMobilePanel: () => void;
   onZoomToCamera: (camera: PlannedCameraNode) => void;
+  onRemoveArea?: (areaId: string) => void;
   onCloseCameraCard: () => void;
-  onCancelPickCustomCenter?: () => void;
+  onSwitchDrawingMode?: (mode: 'freehand' | 'polygon') => void;
+  onFinishPolygonDraft?: () => void;
+  onUndoPolygonVertex?: () => void;
+  onCancelDrawing?: () => void;
 }
 
 export function MapControlsOverlay({
@@ -74,15 +77,15 @@ export function MapControlsOverlay({
   showMapLegend,
   usingGoogleMaps,
   mobilePanelOpen,
-  selectedSector,
   selectedCamera,
   coverageConfig,
   visibleCameraCount,
   simulationSummary,
   simulatorConfig,
-  planScope = 'top5',
-  customAreaPlan = null,
-  isPickingCustomCenter = false,
+  areasOfInterest,
+  drawingMode = 'none',
+  drawnPolygon = [],
+  draftPolygonVertices = [],
   onModeChange,
   onToggleLabels,
   onToggleTerrain,
@@ -92,24 +95,31 @@ export function MapControlsOverlay({
   onResetFinlandView,
   onToggleMobilePanel,
   onZoomToCamera,
+  onRemoveArea,
   onCloseCameraCard,
-  onCancelPickCustomCenter,
+  onSwitchDrawingMode,
+  onFinishPolygonDraft,
+  onUndoPolygonVertex,
+  onCancelDrawing,
 }: MapControlsOverlayProps) {
   const scaleBar = calculateScaleBar(camera.center.lat, camera.zoom, 116);
   const activeCoord = cursorPoint ?? camera.center;
   const isSatellite = mode === 'satellite';
-  const isRotational = isArrangementRotational(simulatorConfig.arrangementId);
+
+  const drawnAreaKm2 = computePolygonAreaKm2(drawnPolygon);
+
+  const selectedCameraAreaCount = selectedCamera
+    ? areasOfInterest.find((a) => a.id === selectedCamera.cityId)?.cameras.length
+    : undefined;
 
   const cameraLegendSummary =
-    planScope === 'custom'
-      ? customAreaPlan
-        ? `${visibleCameraCount.toLocaleString()} road cameras (${customAreaPlan.label} · ${customAreaPlan.radiusKm} km)`
-        : 'Select location & radius to distribute 100 cameras'
-      : !isRotational
-        ? `${visibleCameraCount.toLocaleString()} static cameras`
-        : selectedSector === 'all'
-          ? `${visibleCameraCount.toLocaleString()} annual sites (5 sectors × 0.2 yr)`
-          : `${visibleCameraCount.toLocaleString()} active cameras (S${selectedSector} · ${SECTOR_ROTATION_SCHEDULE[selectedSector].shortPeriod})`;
+    areasOfInterest.length > 0
+      ? `${visibleCameraCount.toLocaleString()} road cameras across ${areasOfInterest.length} ${
+          areasOfInterest.length === 1 ? 'area' : 'areas'
+        }`
+      : drawnPolygon.length >= 3
+        ? `Draft area (${drawnAreaKm2.toFixed(1)} km²) — enter camera count & place`
+        : 'Empty map — draw an area of interest to plot cameras';
 
   const yearTag =
     simulationSummary.selectedYear === 'all'
@@ -118,7 +128,7 @@ export function MapControlsOverlay({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-3 sm:p-4">
-      {/* Top Row: Mobile Drawer Trigger / Selected Camera Card (left) + Floating Mode Switcher (right) */}
+      {/* Top Row: Mobile Drawer Trigger / Selected Camera Card (left) + Active Drawing Banner + Floating Mode Switcher (right) */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col items-start gap-2.5">
           <div className="pointer-events-auto lg:hidden">
@@ -137,27 +147,80 @@ export function MapControlsOverlay({
           {selectedCamera && (
             <CameraSitePlanCard
               camera={selectedCamera}
+              areaTotalCameras={selectedCameraAreaCount}
               coverageConfig={coverageConfig}
               onZoomToCamera={onZoomToCamera}
+              onRemoveArea={onRemoveArea}
               onClose={onCloseCameraCard}
             />
           )}
         </div>
 
-        {isPickingCustomCenter && (
+        {drawingMode !== 'none' && (
           <div
             role="status"
-            data-testid="pick-center-banner"
-            className="pointer-events-auto flex items-center gap-2.5 rounded-lg border border-amber-300 bg-amber-50/96 px-3.5 py-2 text-xs font-medium text-amber-950 shadow-sm backdrop-blur"
+            data-testid="drawing-mode-banner"
+            className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50/96 px-3.5 py-2 text-xs font-medium text-amber-950 shadow-sm backdrop-blur"
           >
-            <Crosshair className="h-4 w-4 shrink-0 text-amber-800" aria-hidden="true" />
-            <span>Click anywhere on the Finland map to set study center</span>
-            {onCancelPickCustomCenter && (
+            {drawingMode === 'freehand' ? (
+              <>
+                <Lasso className="h-4 w-4 shrink-0 text-amber-800" aria-hidden="true" />
+                <span>Drag on map to outline area of interest</span>
+                {onSwitchDrawingMode && (
+                  <button
+                    type="button"
+                    onClick={() => onSwitchDrawingMode('polygon')}
+                    className="rounded border border-amber-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-amber-950 hover:bg-amber-100 whitespace-nowrap"
+                  >
+                    Polygon Corners
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <Pentagon className="h-4 w-4 shrink-0 text-amber-800" aria-hidden="true" />
+                <span>
+                  Click map to place corners ({draftPolygonVertices.length}{' '}
+                  {draftPolygonVertices.length === 1 ? 'pt' : 'pts'})
+                </span>
+                {draftPolygonVertices.length >= 3 && onFinishPolygonDraft && (
+                  <button
+                    type="button"
+                    onClick={onFinishPolygonDraft}
+                    className="inline-flex items-center gap-1 rounded bg-amber-700 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-amber-800 whitespace-nowrap"
+                  >
+                    <Check className="h-3 w-3" aria-hidden="true" />
+                    <span>Finish Area</span>
+                  </button>
+                )}
+                {draftPolygonVertices.length >= 1 && onUndoPolygonVertex && (
+                  <button
+                    type="button"
+                    onClick={onUndoPolygonVertex}
+                    className="inline-flex items-center gap-1 rounded border border-amber-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-amber-950 hover:bg-amber-100 whitespace-nowrap"
+                  >
+                    <Undo2 className="h-3 w-3" aria-hidden="true" />
+                    <span>Undo</span>
+                  </button>
+                )}
+                {onSwitchDrawingMode && (
+                  <button
+                    type="button"
+                    onClick={() => onSwitchDrawingMode('freehand')}
+                    className="rounded border border-amber-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-amber-950 hover:bg-amber-100 whitespace-nowrap"
+                  >
+                    Freehand
+                  </button>
+                )}
+              </>
+            )}
+
+            {onCancelDrawing && (
               <button
                 type="button"
-                onClick={onCancelPickCustomCenter}
-                aria-label="Cancel map center selection"
-                className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded text-amber-900 hover:bg-amber-200/70"
+                onClick={onCancelDrawing}
+                aria-label="Cancel area drawing"
+                className="ml-0.5 inline-flex h-6 w-6 items-center justify-center rounded text-amber-900 hover:bg-amber-200/70"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
@@ -240,21 +303,7 @@ export function MapControlsOverlay({
                 <span className="font-mono font-semibold tabular-nums text-slate-800">
                   {cameraLegendSummary}
                 </span>
-                {planScope !== 'custom' && coverageConfig.showDeploymentSectors && (
-                  <>
-                    <span aria-hidden="true" className="text-slate-300">
-                      ·
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span
-                        aria-hidden="true"
-                        className="inline-block h-2.5 w-3.5 rounded-xs border border-dashed border-teal-700 bg-teal-500/20"
-                      />
-                      <span>5 Sectors (S1–S5)</span>
-                    </span>
-                  </>
-                )}
-                {coverageConfig.showCoverageAreas && (
+                {visibleCameraCount > 0 && coverageConfig.showCoverageAreas && (
                   <>
                     <span aria-hidden="true" className="text-slate-300">
                       ·
@@ -265,12 +314,12 @@ export function MapControlsOverlay({
                         className="inline-block h-2.5 w-3.5 rounded-xs border border-sky-700 bg-sky-500/25"
                       />
                       <span>
-                        Cone ({coverageConfig.rangeMeters} m · {coverageConfig.fovDeg}°)
+                        Cones ({coverageConfig.rangeMeters} m · 2×{coverageConfig.fovDeg}°)
                       </span>
                     </span>
                   </>
                 )}
-                {coverageConfig.showAccidentHotspots && (
+                {areasOfInterest.length > 0 && coverageConfig.showAccidentHotspots && (
                   <>
                     <span aria-hidden="true" className="text-slate-300">
                       ·
@@ -320,7 +369,7 @@ export function MapControlsOverlay({
               </div>
 
               <span className="sm:hidden font-mono text-[11px] font-semibold tabular-nums text-slate-800">
-                {visibleCameraCount.toLocaleString()} sites
+                {visibleCameraCount.toLocaleString()} cameras · {areasOfInterest.length} areas
               </span>
 
               <button
@@ -367,7 +416,7 @@ export function MapControlsOverlay({
                     ·
                   </span>
                   <span className="hidden md:inline text-[10px] text-slate-500 whitespace-nowrap">
-                    Tiles © Esri · OpenStreetMap · Collisions © Riistakeskus / Ramboll
+                    Tiles © Esri · OpenStreetMap · Collisions © Riistakeskus / Ramboll (local)
                   </span>
                 </>
               )}
