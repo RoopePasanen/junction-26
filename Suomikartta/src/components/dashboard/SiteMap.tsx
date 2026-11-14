@@ -120,33 +120,73 @@ export function SiteMap({ sites, units, heat, selectedSiteId, onSelectSite, focu
     return sorted[Math.floor(sorted.length * 0.98)] || 1;
   }, [heat]);
 
+  // The blurred heat layer is expensive to draw, so it is drawn once into a cache canvas
+  // covering the view plus a margin. Panning only copies from the cache; it is redrawn
+  // when the zoom changes or the view leaves the cached area.
+  const heatCache = useRef<{ key: string; x0: number; y0: number; w: number; h: number; canvas: HTMLCanvasElement } | null>(
+    null
+  );
+
   useEffect(() => {
     const canvas = heatRef.current;
     if (!canvas || !size.width || !view) return;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = size.width * dpr;
-    canvas.height = size.height * dpr;
+    if (canvas.width !== size.width || canvas.height !== size.height) {
+      canvas.width = size.width; // 1:1 pixels is plenty for a blurred layer
+      canvas.height = size.height;
+    }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, size.width, size.height);
     if (!showHeat) return;
-    const cellPx = Math.abs(toScreen(60.3, 24.02).x - toScreen(60.3, 24.0).x);
-    const r = Math.max(3, cellPx * 0.7);
-    // Cells are ~1 km: zoomed in they turn into big blobs, so fade them to keep roads readable.
-    const fade = zoom >= 13 ? 0.35 : zoom >= 12 ? 0.6 : 1;
-    ctx.filter = `blur(${Math.min(40, Math.max(2, r * 0.45))}px)`;
-    for (const [lng, lat, count] of heat) {
-      const p = toScreen(lat, lng);
-      if (p.x < -r || p.y < -r || p.x > size.width + r || p.y > size.height + r) continue;
-      const v = Math.min(1, count / heatMax);
-      ctx.globalAlpha = (0.35 + v * 0.45) * fade;
-      ctx.fillStyle = HEAT_RAMP[Math.min(HEAT_RAMP.length - 1, Math.floor(v * HEAT_RAMP.length))];
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.fill();
+
+    const left = centerWorld.x - size.width / 2;
+    const top = centerWorld.y - size.height / 2;
+    const key = `${zoom}:${heatMax}:${size.width}x${size.height}`;
+    let c = heatCache.current;
+    const inside =
+      c && c.key === key && left >= c.x0 && top >= c.y0 && left + size.width <= c.x0 + c.w && top + size.height <= c.y0 + c.h;
+
+    if (!inside) {
+      const mx = size.width / 2;
+      const my = size.height / 2;
+      const w = size.width + 2 * mx;
+      const h = size.height + 2 * my;
+      const x0 = left - mx;
+      const y0 = top - my;
+      const cellPx = Math.abs(
+        latLngToWorldPixel({ lat: 60.3, lng: 24.02 }, zoom).x - latLngToWorldPixel({ lat: 60.3, lng: 24.0 }, zoom).x
+      );
+      const r = Math.max(3, cellPx * 0.7);
+      // Cells are ~1 km: zoomed in they turn into big blobs, so fade them to keep roads readable.
+      const fade = zoom >= 13 ? 0.35 : zoom >= 12 ? 0.6 : 1;
+
+      const dots = document.createElement('canvas');
+      dots.width = w;
+      dots.height = h;
+      const d = dots.getContext('2d')!;
+      for (const [lng, lat, count] of heat) {
+        const wp = latLngToWorldPixel({ lat, lng }, zoom);
+        const x = wp.x - x0;
+        const y = wp.y - y0;
+        if (x < -r || y < -r || x > w + r || y > h + r) continue;
+        const v = Math.min(1, count / heatMax);
+        d.globalAlpha = (0.35 + v * 0.45) * fade;
+        d.fillStyle = HEAT_RAMP[Math.min(HEAT_RAMP.length - 1, Math.floor(v * HEAT_RAMP.length))];
+        d.beginPath();
+        d.arc(x, y, r, 0, Math.PI * 2);
+        d.fill();
+      }
+      // One blur for the whole layer (blurring each dot separately was ~10x slower).
+      const blurred = c?.canvas && c.canvas.width === w && c.canvas.height === h ? c.canvas : document.createElement('canvas');
+      blurred.width = w;
+      blurred.height = h;
+      const b = blurred.getContext('2d')!;
+      b.filter = `blur(${Math.min(40, Math.max(2, r * 0.45))}px)`;
+      b.drawImage(dots, 0, 0);
+      c = heatCache.current = { key, x0, y0, w, h, canvas: blurred };
     }
-  }, [heat, heatMax, toScreen, size.width, size.height, view, showHeat, zoom]);
+    ctx.drawImage(c!.canvas, left - c!.x0, top - c!.y0, size.width, size.height, 0, 0, size.width, size.height);
+  }, [heat, heatMax, centerWorld.x, centerWorld.y, size.width, size.height, view, showHeat, zoom]);
 
   const zoomAt = (delta: number, sx = size.width / 2, sy = size.height / 2) => {
     if (!view) return;

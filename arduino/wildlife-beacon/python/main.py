@@ -180,13 +180,17 @@ live = {"jpg": None, "scores": {}, "label": "no_animal", "conf": 0.0, "source": 
 
 
 def stream_route() -> StreamingResponse:
+    # Browsers only draw a frame once the boundary after it arrives, so each frame is
+    # followed by the next boundary right away (otherwise a single uploaded photo, with
+    # no camera running, would never show). The frame is also re-sent every 2 s.
     def frames():
-        last = None
+        last, sent = None, 0.0
+        yield b"--frame\r\n"
         while True:
             jpg = live["jpg"]
-            if jpg is not None and jpg is not last:
-                last = jpg
-                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + jpg + b"\r\n"
+            if jpg is not None and (jpg is not last or time.time() - sent > 2.0):
+                last, sent = jpg, time.time()
+                yield b"Content-Type: image/jpeg\r\n\r\n" + jpg + b"\r\n--frame\r\n"
             time.sleep(0.1)
     return StreamingResponse(frames(), media_type="multipart/x-mixed-replace; boundary=frame")
 

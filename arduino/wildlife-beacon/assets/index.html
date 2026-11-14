@@ -15,14 +15,8 @@
             background:#1d2a1f; color:var(--ok); border:2px solid #24452a; }
   #beacon.on { background:#3a2a0a; color:var(--warn); border-color:var(--warn); animation:blink .5s steps(1) infinite; }
   @keyframes blink { 50% { background:#111; } }
-  .row { display:grid; grid-template-columns:120px 1fr 56px; gap:8px; align-items:center; margin:6px 0; font-size:15px; }
-  .track { background:var(--bar); border-radius:4px; height:16px; overflow:hidden; }
-  .fill { height:100%; width:0; background:#4c8dff; transition:width .2s; }
-  .row.warn .fill { background:var(--warn); }
-  .row.top { font-weight:700; }
-  .num { text-align:right; font-variant-numeric:tabular-nums; }
   #meta { color:var(--muted); font-size:13px; margin-top:10px; }
-  #upload { margin:16px 0 0; padding:14px; border:2px dashed #444; border-radius:8px; text-align:center; cursor:pointer; }
+  #upload { display:block; margin:16px 0 0; padding:14px; border:2px dashed #444; border-radius:8px; text-align:center; cursor:pointer; }
   #upload.drag { border-color:#4c8dff; background:#16202f; }
   #upload b { color:var(--fg); }
   #upload input { display:none; }
@@ -37,7 +31,6 @@
   <p>What the camera sees, with the animals the UNO Q boxed. Pictures are never saved.</p>
   <img src="/stream" alt="Camera view">
   <div id="beacon">Beacon off</div>
-  <div id="scores"></div>
   <div id="meta">Waiting for the board…</div>
   <label id="upload">
     <input type="file" id="file" accept="image/*">
@@ -47,25 +40,11 @@
   </label>
 </main>
 <script>
-const CLASSES = ["warn_animal", "small_animal", "no_animal"];
-const box = document.getElementById("scores");
-const rows = {};
-for (const c of CLASSES) {
-  const r = document.createElement("div");
-  r.className = "row" + (c === "warn_animal" ? " warn" : "");
-  r.innerHTML = `<span>${c}</span><div class="track"><div class="fill"></div></div><span class="num">–</span>`;
-  box.appendChild(r);
-  rows[c] = { r, fill: r.querySelector(".fill"), num: r.querySelector(".num") };
-}
+// The boxes on the picture show what the model found; this names the result in words.
+const NAMES = { warn_animal: "Warn (deer / moose)", small_animal: "Small animal", no_animal: "No animal" };
 const beacon = document.getElementById("beacon");
 const meta = document.getElementById("meta");
 function render(s) {
-  for (const c of CLASSES) {
-    const v = s.scores[c] ?? (s.label === c ? s.conf : 0);
-    rows[c].fill.style.width = `${Math.round(v * 100)}%`;
-    rows[c].num.textContent = `${Math.round(v * 100)}%`;
-    rows[c].r.classList.toggle("top", s.label === c);
-  }
   beacon.classList.toggle("on", s.beacon);
   beacon.textContent = s.beacon ? "⚠️ BEACON ON: animal on the road" : "Beacon off";
   const hits = s.recent.filter(Boolean).length;
@@ -85,7 +64,7 @@ async function sendPhoto(file) {
     const a = await r.json();
     if (!r.ok || a.error) throw new Error(a.error || a.detail || r.statusText);
     answer.className = a.beacon ? "warn" : "";
-    answer.textContent = `${a.label} ${Math.round(a.conf * 100)}%` +
+    answer.textContent = (a.label === "no_animal" ? "No animal found" : `${NAMES[a.label]} ${Math.round(a.conf * 100)}%`) +
       (a.beacon ? " → beacon on!" : a.label === "warn_animal" ? ` (below ${Math.round(a.min_confidence * 100)}%, no beacon)` : "");
   } catch (e) {
     answer.className = "err"; answer.textContent = `Upload failed: ${e.message}`;

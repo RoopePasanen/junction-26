@@ -8,16 +8,17 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
+  BatteryLow,
   BatteryMedium,
-  Camera,
-  CarFront,
+  CheckCircle2,
   ChevronRight,
-  Euro,
   Moon,
   Radio,
-  ShieldCheck,
   Sun,
   Sunrise,
+  TrendingDown,
+  WifiOff,
+  Wrench,
   X,
 } from 'lucide-react';
 import {
@@ -28,7 +29,14 @@ import {
   REGION_HEAT,
   type CustomerSite,
 } from '../../data/customerSites';
-import { SIM_DAYS, simulateHealth, simulateUnit, type Detection } from '../../utils/pilotSimulation';
+import {
+  PILOT_START,
+  SIM_DAYS,
+  pilotOutcome,
+  simulateHealth,
+  simulateUnit,
+  type Detection,
+} from '../../utils/pilotSimulation';
 import { useLiveEvents } from '../LiveUnitsLayer';
 import { BarChart, HBarList } from './BarChart';
 import { SiteMap, type MapUnit } from './SiteMap';
@@ -183,8 +191,6 @@ export function DashboardView() {
   const scopeUnits = mapUnits.filter((u) => !selectedSite || u.siteId === selectedSite.id);
   const onlineCount = scopeUnits.filter((u) => u.online).length;
 
-  const warnings = detections.filter((d) => d.warning);
-  const bigAnimals = detections.filter((d) => d.class === 'warn_animal');
   const lastYear = collisions.byYear[LAST_FULL_YEAR] ?? 0;
   const prevYears = ['2021', '2022', '2023', '2024'].map((y) => collisions.byYear[y] ?? 0);
   const prevAvg = prevYears.reduce((a, b) => a + b, 0) / prevYears.length;
@@ -208,6 +214,48 @@ export function DashboardView() {
 
   const radarCost = scopeSites.length * RADAR_PER_SITE_EUR;
   const ourCost = scopeUnits.length * UNIT_PRICE_EUR;
+
+  // Pilot outcome: collisions since install vs expected from the real baseline.
+  const dayBucket = Math.floor(now / 86_400_000);
+  const outcome = useMemo(() => {
+    const t = Date.now();
+    return scopeSites.reduce(
+      (acc, s) => {
+        const o = pilotOutcome(s, PILOT_START, t);
+        return { expected: acc.expected + o.expected, actual: acc.actual + o.actual };
+      },
+      { expected: 0, actual: 0 }
+    );
+  }, [selectedSiteId, dayBucket]); // eslint-disable-line react-hooks/exhaustive-deps
+  const outcomeChange = outcome.expected > 0 ? (outcome.actual - outcome.expected) / outcome.expected : 0;
+  const pilotWeeks = Math.max(1, Math.round((now - PILOT_START) / (7 * 86_400_000)));
+  const pilotStartText = new Date(PILOT_START).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+  // This week
+  const weekAgo = now - 7 * 86_400_000;
+  const week = detections.filter((d) => d.t >= weekAgo);
+  const weekWarnings = week.filter((d) => d.warning).length;
+  const weekByHour = Array(24).fill(0) as number[];
+  for (const d of week) weekByHour[new Date(d.t).getHours()]++;
+  let peakHour = 0;
+  for (let h = 0; h < 24; h++) {
+    if (weekByHour[h] + weekByHour[(h + 1) % 24] > weekByHour[peakHour] + weekByHour[(peakHour + 1) % 24]) peakHour = h;
+  }
+  const deerBySite = new Map<string, number>();
+  for (const d of week) if (d.class === 'warn_animal') deerBySite.set(d.site_id, (deerBySite.get(d.site_id) ?? 0) + 1);
+  const topSiteId = [...deerBySite.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const topSite = CUSTOMER_SITES.find((s) => s.id === topSiteId);
+
+  // Needs attention: offline units, low batteries.
+  const attention: Array<{ unit: string; site: string; text: string; kind: 'offline' | 'battery' }> = [];
+  for (const u of scopeUnits) {
+    const siteName = CUSTOMER_SITES.find((s) => s.id === u.siteId)?.name ?? '';
+    if (!u.online) attention.push({ unit: u.id, site: siteName, text: u.real ? 'offline (real board)' : 'offline', kind: 'offline' });
+    if (!u.real) {
+      const h = simulateHealth({ id: u.id, real: false, lat: 0, lng: 0, nearby: 0 });
+      if (h.battery_pct < 25) attention.push({ unit: u.id, site: siteName, text: `battery ${h.battery_pct}%`, kind: 'battery' });
+    }
+  }
 
   const selectSite = (id: string | null) => {
     setSelectedSiteId(id);
@@ -295,53 +343,124 @@ export function DashboardView() {
             </div>
           )}
 
-          {/* KPIs */}
-          <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <Kpi
-              icon={<CarFront className="h-4 w-4" />}
-              label={`Collisions in ${LAST_FULL_YEAR}`}
-              value={fmt(lastYear)}
-              sub={
-                selectedSite
-                  ? `within ${selectedSite.radiusKm} km of this site${roadKmText ? ` · ${roadKmText}` : ''}`
-                  : `on your ${CUSTOMER_SITES.length} stretches${roadKmText ? ` · ${roadKmText}` : ''} · ${fmt(REGION.collisions.byYear[LAST_FULL_YEAR] ?? 0)} in the region`
-              }
-              tag="real"
-            />
-            <Kpi
-              icon={<Camera className="h-4 w-4" />}
-              label={`Animals detected · ${SIM_DAYS} d`}
-              value={fmt(detections.length)}
-              sub={`${fmt(bigAnimals.length)} deer & moose · ${fmt(detections.length - bigAnimals.length)} small`}
-              tag="pilot"
-            />
-            <Kpi
-              icon={<Radio className="h-4 w-4" />}
-              label={`Driver warnings · ${SIM_DAYS} d`}
-              value={fmt(warnings.length)}
-              sub={`≈ ${Math.round(warnings.length / SIM_DAYS)} a day, while an animal was on the road`}
-              tag="pilot"
-              accent
-            />
-            <Kpi
-              icon={<ShieldCheck className="h-4 w-4" />}
-              label="Units online"
-              value={`${onlineCount}/${scopeUnits.length}`}
-              sub={
-                scopeUnits.some((u) => u.real)
-                  ? realOnline('sign-001')
-                    ? 'incl. sign-001 (real board, live)'
-                    : 'sign-001 (real board) offline'
-                  : 'all reporting'
-              }
-              warn={onlineCount < scopeUnits.length}
-            />
-            <Kpi
-              icon={<Euro className="h-4 w-4" />}
-              label="Cost vs radar sites"
-              value={`€${fmt(Math.round(ourCost / 1000))}k`}
-              sub={`vs €${fmt(radarCost / 1000)}k for radar at ${scopeSites.length} site${scopeSites.length > 1 ? 's' : ''} (est.)`}
-            />
+          {/* Hero: result, activity, what needs me */}
+          <section className="grid gap-3 lg:grid-cols-12">
+            {/* Pilot outcome */}
+            <div className="rounded-2xl border border-emerald-900 bg-emerald-950 p-5 text-white shadow-sm lg:col-span-5">
+              <div className="flex items-center justify-between text-xs font-medium text-emerald-200">
+                <span className="flex items-center gap-1.5">
+                  <TrendingDown className="h-4 w-4" /> Collisions since install ({pilotStartText})
+                </span>
+                <span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-50">Simulated</span>
+              </div>
+              <div className="mt-3 flex items-end gap-4">
+                <div className="text-5xl font-bold tracking-tight tabular-nums">{fmt(outcome.actual)}</div>
+                <div className="pb-1.5 text-sm text-emerald-100">
+                  vs <b className="text-white">{fmt(Math.round(outcome.expected))}</b> expected
+                </div>
+                <div
+                  className={`mb-1 ml-auto rounded-full px-3 py-1 text-lg font-bold tabular-nums ${
+                    outcomeChange <= 0 ? 'bg-emerald-400 text-emerald-950' : 'bg-amber-400 text-amber-950'
+                  }`}
+                >
+                  {outcomeChange <= 0 ? '−' : '+'}
+                  {Math.abs(Math.round(outcomeChange * 100))}%
+                </div>
+              </div>
+              {/* actual vs expected bar */}
+              <div className="mt-4 h-2 rounded-full bg-white/15">
+                <div
+                  className="h-2 rounded-full bg-emerald-400"
+                  style={{ width: `${Math.min(100, (outcome.actual / Math.max(1, outcome.expected)) * 100)}%` }}
+                />
+              </div>
+              <p className="mt-2 text-[11px] leading-snug text-emerald-200">
+                {pilotWeeks} weeks of pilot. Expected = the same weeks' average in 2021–2025 (real data) on{' '}
+                {selectedSite ? 'this site' : `your ${CUSTOMER_SITES.length} stretches`}
+                {roadKmText ? ` (${roadKmText})` : ''}.
+              </p>
+            </div>
+
+            {/* Warnings this week */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-3">
+              <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <Radio className="h-4 w-4" /> Driver warnings · 7 days
+                </span>
+                <Tag kind="pilot" />
+              </div>
+              <div className="mt-3 text-5xl font-bold tracking-tight tabular-nums text-slate-950">{fmt(weekWarnings)}</div>
+              <p className="mt-2 text-[11px] leading-snug text-slate-500">
+                Each one while a deer or moose was on the road. {fmt(week.length)} animals detected in total.
+              </p>
+            </div>
+
+            {/* Needs attention */}
+            <div
+              className={`rounded-2xl border p-5 shadow-sm lg:col-span-4 ${
+                attention.length ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <Wrench className="h-4 w-4" /> Needs attention
+                </span>
+                <span className="tabular-nums">
+                  {onlineCount}/{scopeUnits.length} units online
+                </span>
+              </div>
+              {attention.length === 0 ? (
+                <div className="mt-3 flex items-center gap-2 text-lg font-bold text-emerald-800">
+                  <CheckCircle2 className="h-6 w-6" /> All {scopeUnits.length} units OK
+                </div>
+              ) : (
+                <ul className="mt-3 space-y-1.5">
+                  {attention.slice(0, 4).map((a) => (
+                    <li key={a.unit + a.kind} className="flex items-center gap-2 text-sm">
+                      {a.kind === 'offline' ? (
+                        <WifiOff className="h-4 w-4 shrink-0 text-amber-700" />
+                      ) : (
+                        <BatteryLow className="h-4 w-4 shrink-0 text-amber-700" />
+                      )}
+                      <span className="font-semibold text-slate-900">{a.unit}</span>
+                      <span className="text-amber-900">{a.text}</span>
+                      <span className="ml-auto truncate text-[11px] text-slate-500">{a.site}</span>
+                    </li>
+                  ))}
+                  {attention.length > 4 && (
+                    <li className="text-[11px] text-slate-500">+{attention.length - 4} more</li>
+                  )}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          {/* Right now + this week */}
+          <section className="grid gap-3 lg:grid-cols-12">
+            <div className="lg:col-span-5">
+              <RiskCard risk={risk} hour={hourNow} month={monthNow} monthShare={monthShare} lastHour={lastHour.length} beacons={beaconUnits.size} />
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-7">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-900">This week</h2>
+                <Tag kind="pilot" />
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                Your units warned drivers <b className="text-slate-950">{fmt(weekWarnings)} times</b>, mostly at{' '}
+                <b className="text-slate-950">
+                  {String(peakHour).padStart(2, '0')}–{String((peakHour + 2) % 24).padStart(2, '0')}
+                </b>
+                .{' '}
+                {topSite && !selectedSite && (
+                  <>
+                    <b className="text-slate-950">{topSite.name}</b> saw the most deer and moose.{' '}
+                  </>
+                )}
+                {attention.length === 0
+                  ? 'No unit needs maintenance.'
+                  : `${attention.length} unit${attention.length > 1 ? 's need' : ' needs'} attention.`}
+              </p>
+            </div>
           </section>
 
           {/* Map + right column */}
@@ -360,7 +479,6 @@ export function DashboardView() {
             </Card>
 
             <div className="flex min-h-0 flex-col gap-4 xl:col-span-4">
-              <RiskCard risk={risk} hour={hourNow} month={monthNow} monthShare={monthShare} lastHour={lastHour.length} />
               <Card className="flex min-h-0 flex-1 flex-col p-0">
                 <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                   <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
@@ -368,7 +486,7 @@ export function DashboardView() {
                   </h2>
                   <span className="text-[11px] text-slate-500">{selectedSite ? selectedSite.name : 'all sites'}</span>
                 </div>
-                <ul className="max-h-[330px] min-h-0 flex-1 overflow-y-auto">
+                <ul className="max-h-[490px] min-h-0 flex-1 overflow-y-auto">
                   {detections.slice(0, 25).map((d) => (
                     <li key={d.event_id}>
                       <button
@@ -472,8 +590,9 @@ export function DashboardView() {
                 ]}
               />
               <p className="mt-3 text-xs text-slate-600">
-                Average {fmt(Math.round(prevAvg))} a year before {LAST_FULL_YEAR}. The pilot report compares this
-                season against that baseline.
+                {fmt(lastYear)} in {LAST_FULL_YEAR}
+                {selectedSite ? ' at this site' : ` on your stretches, ${fmt(REGION.collisions.byYear[LAST_FULL_YEAR] ?? 0)} in the whole region`}
+                . Average {fmt(Math.round(prevAvg))} a year in 2021–2024: the baseline the pilot is measured against.
               </p>
             </Card>
           </section>
@@ -481,8 +600,12 @@ export function DashboardView() {
           {/* Sites + species */}
           <section className="grid gap-4 lg:grid-cols-3">
             <Card className="overflow-hidden p-0 lg:col-span-2">
-              <div className="border-b border-slate-100 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
                 <h2 className="text-sm font-semibold text-slate-900">Pilot sites</h2>
+                <span className="text-[11px] text-slate-500">
+                  {mapUnits.length} units ≈ €{fmt(Math.round((mapUnits.length * UNIT_PRICE_EUR) / 1000))}k (est.) vs €
+                  {fmt((CUSTOMER_SITES.length * RADAR_PER_SITE_EUR) / 1000)}k for radar at {CUSTOMER_SITES.length} sites
+                </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
@@ -490,6 +613,7 @@ export function DashboardView() {
                     <tr>
                       <th className="px-4 py-2 font-semibold">Site</th>
                       <th className="px-3 py-2 text-right font-semibold">Collisions {LAST_FULL_YEAR}</th>
+                      <th className="px-3 py-2 text-right font-semibold">Since install</th>
                       <th className="px-3 py-2 text-right font-semibold">Detections {SIM_DAYS} d</th>
                       <th className="px-3 py-2 text-right font-semibold">Warnings</th>
                       <th className="px-3 py-2 font-semibold">Units</th>
@@ -515,6 +639,17 @@ export function DashboardView() {
                               <div className="text-[11px] text-slate-500">{s.municipality}</div>
                             </td>
                             <td className="px-3 py-2.5 text-right tabular-nums">{s.collisions.byYear[LAST_FULL_YEAR] ?? 0}</td>
+                            <td className="px-3 py-2.5 text-right tabular-nums">
+                              {(() => {
+                                const o = pilotOutcome(s, PILOT_START, now);
+                                return (
+                                  <>
+                                    <b className="text-slate-900">{o.actual}</b>
+                                    <span className="text-slate-400"> / {Math.round(o.expected)} exp.</span>
+                                  </>
+                                );
+                              })()}
+                            </td>
                             <td className="px-3 py-2.5 text-right tabular-nums">{fmt(sd.length)}</td>
                             <td className="px-3 py-2.5 text-right tabular-nums">{fmt(sd.filter((d) => d.warning).length)}</td>
                             <td className="px-3 py-2.5">
@@ -601,59 +736,20 @@ function CardTitle({ title, note, tag }: { title: string; note: string; tag?: 'r
   );
 }
 
-function Kpi({
-  icon,
-  label,
-  value,
-  sub,
-  tag,
-  accent,
-  warn,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub: string;
-  tag?: 'real' | 'pilot';
-  accent?: boolean;
-  warn?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border p-4 shadow-sm ${
-        accent ? 'border-emerald-800 bg-emerald-900 text-white' : 'border-slate-200 bg-white'
-      }`}
-    >
-      <div className={`flex items-center justify-between text-xs font-medium ${accent ? 'text-emerald-100' : 'text-slate-500'}`}>
-        <span className="flex items-center gap-1.5">
-          {icon}
-          {label}
-        </span>
-        {tag && !accent && <Tag kind={tag} />}
-        {tag && accent && (
-          <span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-50">
-            {tag === 'real' ? 'Real data' : 'Simulated'}
-          </span>
-        )}
-      </div>
-      <div className={`mt-2 text-3xl font-bold tracking-tight tabular-nums ${warn ? 'text-amber-600' : ''}`}>{value}</div>
-      <div className={`mt-1 text-[11px] leading-snug ${accent ? 'text-emerald-100' : 'text-slate-500'}`}>{sub}</div>
-    </div>
-  );
-}
-
 function RiskCard({
   risk,
   hour,
   month,
   monthShare,
   lastHour,
+  beacons,
 }: {
   risk: string;
   hour: number;
   month: number;
   monthShare: number;
   lastHour: number;
+  beacons: number;
 }) {
   const dusk = hour >= 16 && hour <= 20;
   const dawn = hour >= 5 && hour <= 8;
@@ -665,20 +761,27 @@ function RiskCard({
         : { box: 'border-emerald-200 bg-emerald-50', text: 'text-emerald-900', badge: 'bg-emerald-700 text-white' };
   const Icon = dusk || hour > 20 || hour < 5 ? Moon : dawn ? Sunrise : Sun;
   return (
-    <div className={`rounded-2xl border p-4 shadow-sm ${style.box}`}>
+    <div className={`h-full rounded-2xl border p-4 shadow-sm ${style.box}`}>
       <div className="flex items-center justify-between">
         <h2 className={`flex items-center gap-2 text-sm font-semibold ${style.text}`}>
-          <Icon className="h-4 w-4" /> Collision risk right now
+          <Icon className="h-4 w-4" /> Right now
         </h2>
         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${style.badge}`}>
           {risk !== 'Normal' && <AlertTriangle className="h-3 w-3" />}
-          {risk}
+          {risk} risk
         </span>
       </div>
-      <p className={`mt-2 text-xs leading-relaxed ${style.text}`}>
+      <p className={`mt-2 text-sm leading-relaxed ${style.text}`}>
         {dusk ? 'Dusk' : dawn ? 'Dawn' : hour > 20 || hour < 5 ? 'Night' : 'Daytime'}
         {monthShare * 12 > 1.2 ? ` in ${MONTHS[month]}, the peak collision month` : ` in ${MONTHS[month]}`}.{' '}
-        {lastHour} animal{lastHour === 1 ? '' : 's'} detected in the last hour.
+        {lastHour} animal{lastHour === 1 ? '' : 's'} detected in the last hour.{' '}
+        {beacons > 0 ? (
+          <b className="text-red-700">
+            {beacons} beacon{beacons > 1 ? 's' : ''} warning drivers now.
+          </b>
+        ) : (
+          'No beacon active.'
+        )}
       </p>
     </div>
   );

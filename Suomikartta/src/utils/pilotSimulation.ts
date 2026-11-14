@@ -118,10 +118,45 @@ export function simulateUnit(site: CustomerSite, unit: SiteUnit, now: number): D
   return out;
 }
 
+// ---- Pilot outcome: collisions since install vs expected -------------------------------
+// Pilot units went up on this date (demo assumption).
+export const PILOT_START = new Date('2026-09-01T00:00:00+03:00').getTime();
+const BASELINE_YEARS = 5; // 2021–2025
+// ASSUMPTION for the simulated "actual": share of expected collisions the warnings prevent.
+// Real pilots measure this; the radar site in PLAN.md went from 12 collisions to 0.
+export const SIMULATED_EFFECT = 0.45;
+
+const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+
+/**
+ * Expected collisions at a site between `from` and `to`, from the real 2021–2025
+ * monthly baseline (so it follows the season), and a simulated actual count.
+ */
+export function pilotOutcome(site: CustomerSite, from: number, to: number) {
+  let expected = 0;
+  let actual = 0;
+  const d = new Date(from);
+  while (d.getTime() < to) {
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const monthEnd = new Date(y, m + 1, 1).getTime();
+    const sliceEnd = Math.min(monthEnd, to);
+    const days = (sliceEnd - d.getTime()) / 86_400_000;
+    const perDay = site.collisions.byMonth[m] / BASELINE_YEARS / daysInMonth(y, m);
+    const exp = perDay * days;
+    expected += exp;
+    // Simulated: whole collisions per month, seeded so it doesn't change on reload.
+    const rand = rng(hash(`collisions:${site.id}:${y}-${m}`));
+    actual += poisson(rand, exp * (1 - SIMULATED_EFFECT));
+    d.setTime(sliceEnd);
+  }
+  return { expected, actual };
+}
+
 export function simulateHealth(unit: SiteUnit): UnitHealth {
   const rand = rng(hash(`health:${unit.id}`));
   return {
-    battery_pct: Math.round(58 + rand() * 40),
+    battery_pct: Math.round(12 + rand() * 86),
     temp_c: +(-3 + rand() * 6).toFixed(1),
     camera_ok: true,
   };
