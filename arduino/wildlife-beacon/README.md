@@ -3,7 +3,8 @@
 Beacon logic for the roadside unit (PLAN.md, step A5).
 
 - Beacon on when a "Warn" box (deer, moose...) is above 0.5 confidence in 2 of the last 3 frames.
-- Stays on 30 s after the last sighting. LED matrix flashes, buzzer beeps 3 times.
+- Stays on 30 s after the last sighting. The RGB LEDs (LED3, LED4) flash orange with the
+  LED matrix, buzzer beeps 3 times. Tune the orange with `GREEN_EVERY` in `sketch/sketch.ino`.
 - Each sighting is written as one JSON line (format B1) to `data/events.jsonl`.
 
 **Model:** USB camera picture every 0.5 s → Aarne's Edge Impulse object detection model

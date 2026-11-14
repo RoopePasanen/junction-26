@@ -1,8 +1,10 @@
 // Wildlife Beacon: microcontroller (Arduino sketch) side of the App Lab app.
 //
 // - The Python side calls set_beacon(true/false) over the Bridge.
-//   While on, the built-in LED and an antler shape on the LED matrix flash,
-//   and the buzzer beeps 3 times when the beacon turns on.
+//   Python turns it on when a Warn animal (deer, moose, boar...) is confirmed.
+//   While on, the two RGB LEDs (LED3, LED4) flash orange together with an
+//   antler shape on the LED matrix, and the buzzer beeps 3 times when the
+//   beacon turns on.
 // - Flash speed and buzzer on/off come from Python (set_flash_ms, set_buzzer),
 //   so all settings live in python/main.py and you don't have to recompile
 //   this sketch to tune them.
@@ -15,8 +17,17 @@
 #include <Arduino_LED_Matrix.h>
 #include <Arduino_Modulino.h>
 
-const int LED_LIT = LOW;    // the UNO Q's built-in LED is "active low"
+const int LED_LIT = LOW;    // the UNO Q's RGB LEDs are "active low"
 const int LED_DARK = HIGH;
+
+// Orange = red fully on + a little green. The LEDs are on/off only, so green
+// is dimmed by lighting it on 1 of every GREEN_EVERY loop passes (about 1 ms
+// each). 2 = yellowish, 3 = orange, 5 = red-orange. Pure red: set it to 0.
+const int GREEN_EVERY = 3;
+const int RED_PINS[] = {LED3_R, LED4_R};
+const int GREEN_PINS[] = {LED3_G, LED4_G};
+const int BLUE_PINS[] = {LED3_B, LED4_B};
+int greenTick = 0;
 const unsigned long KNOB_POLL_MS = 50;
 const int KNOB_STEP = 2;    // ignore tiny knob wiggles
 
@@ -82,8 +93,19 @@ void set_buzzer(bool on) {
 
 void showBeacon(bool lit) {
   beaconLit = lit;
-  digitalWrite(LED_BUILTIN, lit ? LED_LIT : LED_DARK);
+  for (int pin : RED_PINS) {
+    digitalWrite(pin, lit ? LED_LIT : LED_DARK);
+  }
   matrix.draw(lit ? shapeOn : allOff);
+}
+
+// Runs every loop pass: mixes the dimmed green into the red while lit.
+void updateOrange() {
+  greenTick = (greenTick + 1) % (GREEN_EVERY > 0 ? GREEN_EVERY : 1);
+  bool green = beaconLit && GREEN_EVERY > 0 && greenTick == 0;
+  for (int pin : GREEN_PINS) {
+    digitalWrite(pin, green ? LED_LIT : LED_DARK);
+  }
 }
 
 void updateBeacon() {
@@ -135,8 +157,9 @@ void updateKnob() {
 }
 
 void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LED_DARK);
+  for (int pin : RED_PINS) { pinMode(pin, OUTPUT); digitalWrite(pin, LED_DARK); }
+  for (int pin : GREEN_PINS) { pinMode(pin, OUTPUT); digitalWrite(pin, LED_DARK); }
+  for (int pin : BLUE_PINS) { pinMode(pin, OUTPUT); digitalWrite(pin, LED_DARK); }
 
   // Turn the ANTLERS picture into matrix pixels (7 = full brightness).
   for (int r = 0; r < ROWS; r++) {
@@ -163,6 +186,7 @@ void setup() {
 
 void loop() {
   updateBeacon();
+  updateOrange();
   updateKnob();
-  delay(10);
+  delay(1);   // short, so the green mix doesn't flicker
 }
