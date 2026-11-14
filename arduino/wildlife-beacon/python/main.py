@@ -50,10 +50,10 @@ logger = Logger("wildlife-beacon")
 # need to be recompiled.
 DEVICE_ID = "sign-001"
 
-# Where this unit stands (drawn on the dashboard map). Default: a road near Lohja,
-# one of the worst deer-collision areas in Uusimaa.
-DEVICE_LAT = 60.2486
-DEVICE_LNG = 24.0653
+# Where this unit stands (drawn on the dashboard map). Default: the Kirkkonummi · Masala
+# pilot site, one of the worst collision hotspots in Uusimaa (Suomikartta customerSites.ts).
+DEVICE_LAT = 60.16662
+DEVICE_LNG = 24.54689
 
 # Dashboard receiver (Suomikartta server on the laptop). Use the laptop's IP on the
 # same Wi-Fi / hotspot, e.g. "http://172.20.10.5:3000/api/events". "" = don't send

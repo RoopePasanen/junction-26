@@ -63,13 +63,15 @@ function toEvent(raw: unknown): LiveEvent | null {
     lat,
     lng,
     thumb: typeof r.thumb === 'string' && r.thumb.startsWith('data:image/') ? r.thumb : undefined,
-    received_at: new Date().toISOString(),
+    received_at: typeof r.received_at === 'string' ? r.received_at : new Date().toISOString(),
   };
 }
 
 export function registerLiveEventRoutes(app: Express, dataDir: string): void {
   const events = new Map<string, LiveEvent>();
   const clients = new Set<Response>();
+  const lastSeen = new Map<string, string>(); // device_id -> last time we heard from it
+  const boardState = { url: '', online: false, lastOk: null as string | null };
   const logFile = path.join(dataDir, 'live-events.jsonl');
 
   // Reload finished events from earlier runs.
@@ -123,8 +125,10 @@ export function registerLiveEventRoutes(app: Express, dataDir: string): void {
     const items = Array.isArray(req.body) ? req.body : [req.body];
     let accepted = 0;
     for (const item of items) {
+      if (item && typeof item === 'object') delete (item as Record<string, unknown>).received_at; // ours to set
       const ev = toEvent(item);
       if (!ev) continue;
+      lastSeen.set(ev.device_id, new Date().toISOString());
       upsert(ev);
       accepted++;
     }
@@ -161,9 +165,20 @@ export function registerLiveEventRoutes(app: Express, dataDir: string): void {
     });
   });
 
+  // Unit status: last time each device was heard from (events pushed or pulled), and
+  // whether the board answers in pull mode. The dashboard shows units as online from this.
+  app.get('/api/units', (_req, res) => {
+    for (const ev of events.values()) {
+      const prev = lastSeen.get(ev.device_id);
+      if (!prev || prev < ev.received_at) lastSeen.set(ev.device_id, ev.received_at);
+    }
+    res.json({ board: boardState.url ? boardState : null, lastSeen: Object.fromEntries(lastSeen) });
+  });
+
   // Pull mode: ask the board for its recent events.
   const boardUrl = (process.env.BOARD_URL ?? '').trim().replace(/\/$/, '');
   if (boardUrl) {
+    boardState.url = boardUrl;
     let failing = false;
     console.log(`[live] pulling events from ${boardUrl}/events every ${BOARD_POLL_MS / 1000} s`);
     setInterval(async () => {
@@ -177,9 +192,12 @@ export function registerLiveEventRoutes(app: Express, dataDir: string): void {
         }
         if (failing) console.log('[live] board reachable again');
         failing = false;
+        boardState.online = true;
+        boardState.lastOk = new Date().toISOString();
       } catch (err) {
         if (!failing) console.warn(`[live] board not reachable at ${boardUrl}:`, (err as Error).message);
         failing = true;
+        boardState.online = false;
       }
     }, BOARD_POLL_MS);
   }
