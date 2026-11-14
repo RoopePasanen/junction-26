@@ -12,6 +12,7 @@ import {
   BatteryMedium,
   CheckCircle2,
   ChevronRight,
+  Maximize2,
   Moon,
   Radio,
   Sun,
@@ -39,6 +40,7 @@ import {
 } from '../../utils/pilotSimulation';
 import { useLiveEvents } from '../LiveUnitsLayer';
 import { BarChart, HBarList } from './BarChart';
+import { DetectionPhotoModal, photoFor } from './DetectionPhoto';
 import { SiteMap, type MapUnit } from './SiteMap';
 
 // ---- Settings ----------------------------------------------------------------------
@@ -103,6 +105,7 @@ export function DashboardView() {
   const [now, setNow] = useState(() => Date.now());
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ point: { lat: number; lng: number }; zoom: number; key: number } | null>(null);
+  const [photoId, setPhotoId] = useState<string | null>(null); // detection open in the photo viewer
   const { events: liveEvents, connection, latestAlert, dismissAlert } = useLiveEvents();
   const unitStatus = useUnitStatus();
 
@@ -487,23 +490,36 @@ export function DashboardView() {
                   <span className="text-[11px] text-slate-500">{selectedSite ? selectedSite.name : 'all sites'}</span>
                 </div>
                 <ul className="max-h-[490px] min-h-0 flex-1 overflow-y-auto">
-                  {detections.slice(0, 25).map((d) => (
-                    <li key={d.event_id}>
+                  {detections.slice(0, 25).map((d) => {
+                    const photo = photoFor(d);
+                    return (
+                    <li key={d.event_id} className="flex items-center border-b border-slate-50 hover:bg-slate-50">
+                      <button
+                        type="button"
+                        onClick={() => setPhotoId(d.event_id)}
+                        title={photo.src ? 'Open photo' : 'No photo for this sighting'}
+                        aria-label={`Open photo: ${d.class === 'warn_animal' ? 'deer or moose' : 'small animal'} at ${d.device_id}`}
+                        className="group relative ml-4 h-9 w-12 shrink-0 overflow-hidden rounded-md bg-slate-100 outline-offset-2 focus-visible:outline-2 focus-visible:outline-emerald-600"
+                      >
+                        {photo.src ? (
+                          <img src={photo.src} alt="" loading="lazy" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-base">
+                            {d.class === 'warn_animal' ? '🦌' : '🦊'}
+                          </span>
+                        )}
+                        <span className="absolute inset-0 flex items-center justify-center bg-slate-950/45 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                          <Maximize2 className="h-3.5 w-3.5" />
+                        </span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
                           setSelectedSiteId(d.site_id);
                           setFocus({ point: { lat: d.lat, lng: d.lng }, zoom: 15, key: Date.now() });
                         }}
-                        className="flex w-full items-center gap-3 border-b border-slate-50 px-4 py-2 text-left hover:bg-slate-50"
+                        className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3 pr-4 text-left"
                       >
-                        {d.thumb ? (
-                          <img src={d.thumb} alt="" className="h-9 w-12 shrink-0 rounded-md object-cover" />
-                        ) : (
-                          <span className="flex h-9 w-12 shrink-0 items-center justify-center rounded-md bg-slate-100 text-base">
-                            {d.class === 'warn_animal' ? '🦌' : '🦊'}
-                          </span>
-                        )}
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-900">
                             {d.class === 'warn_animal' ? 'Deer / moose' : 'Small animal'}
@@ -522,7 +538,8 @@ export function DashboardView() {
                         <span className="shrink-0 text-[11px] tabular-nums text-slate-400">{timeAgo(d.t, now)}</span>
                       </button>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               </Card>
             </div>
@@ -707,6 +724,21 @@ export function DashboardView() {
           </footer>
         </div>
       </div>
+
+      {photoId !== null && detections.some((d) => d.event_id === photoId) && (
+        <DetectionPhotoModal
+          detections={detections}
+          index={detections.findIndex((d) => d.event_id === photoId)}
+          onIndex={(i) => setPhotoId(detections[i]?.event_id ?? null)}
+          onClose={() => setPhotoId(null)}
+          siteName={(d) => unitIndex.get(d.device_id)?.site.name ?? d.device_id}
+          onShowOnMap={(d) => {
+            setPhotoId(null);
+            setSelectedSiteId(d.site_id);
+            setFocus({ point: { lat: d.lat, lng: d.lng }, zoom: 15, key: Date.now() });
+          }}
+        />
+      )}
     </div>
   );
 }

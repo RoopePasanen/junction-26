@@ -161,3 +161,29 @@ export function simulateHealth(unit: SiteUnit): UnitHealth {
     camera_ok: true,
   };
 }
+
+// ---- Example photos for simulated detections ---------------------------------------------
+// Simulated detections have no picture, so the dashboard shows an example roadside photo
+// from our training set (public/example-detections, AI-generated), always labelled as such.
+// Picked by animal class and by how light it is at that hour (autumn in Finland), and seeded
+// by the event id so the same detection always shows the same photo.
+const EXAMPLE_PHOTOS: Record<Detection['class'], Record<'day' | 'dusk' | 'night', string[]>> = {
+  warn_animal: {
+    day: ['moose_day_038', 'moose_day_063', 'roedeer_day_058', 'whitetaileddeer_day_046'],
+    dusk: ['moose_dusk_007', 'moose_dusk_054', 'roedeer_dusk_009', 'whitetaileddeer_dusk_003'],
+    night: ['moose_night_001', 'moose_night_011', 'roedeer_night_008', 'whitetaileddeer_night_045'],
+  },
+  small_animal: {
+    day: ['redfox_day_004', 'hare_day_052', 'badger_day_057'],
+    dusk: ['redfox_dusk_055', 'hare_dusk_071', 'badger_dusk_058'],
+    night: ['redfox_night_027', 'hare_night_062', 'badger_night_053'],
+  },
+};
+
+export function examplePhoto(d: Pick<Detection, 'event_id' | 'class' | 't'>): string {
+  const hour = new Date(d.t).getHours();
+  const light = hour >= 18 || hour < 7 ? 'night' : hour === 7 || hour >= 15 ? 'dusk' : 'day';
+  const pool = EXAMPLE_PHOTOS[d.class][light];
+  const name = pool[hash(`photo:${d.event_id}`) % pool.length];
+  return `/example-detections/${d.class}_${name}.jpg`;
+}
