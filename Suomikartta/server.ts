@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildCustomAreaCameraPlan } from './src/server/rambollCustomPlanner.ts';
+import { registerLiveEventRoutes } from './src/server/liveEvents.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,6 +10,9 @@ const __dirname = path.dirname(__filename);
 async function startServer(): Promise<void> {
   const app = express();
   const port = Number(process.env.PORT) || 3000;
+
+  // Live events from the roadside units (before the global JSON parser: own size limit).
+  registerLiveEventRoutes(app, path.join(__dirname, 'data'));
 
   app.use(express.json());
 

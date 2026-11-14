@@ -31,3 +31,6 @@ dataset/synthetic/no_animal/
 arduino/board-backup/ArduinoApps/capture/captures/
 arduino/*/captures/
 arduino/*/data/
+
+# Dashboard live-event log
+Suomikartta/data/

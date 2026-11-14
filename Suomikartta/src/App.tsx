@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CanvasFinlandMap } from './components/CanvasFinlandMap';
 import { GoogleFinlandMap } from './components/GoogleFinlandMap';
+import { LiveUnitsLayer } from './components/LiveUnitsLayer';
 import { MapControlsOverlay } from './components/MapControlsOverlay';
 import { SidebarPanel, type SidebarTabId } from './components/SidebarPanel';
 import {
@@ -747,6 +748,8 @@ export default function App() {
               onPickCustomCenter={handlePickCustomCenterOnMap}
             />
           )}
+
+          <LiveUnitsLayer camera={camera} onFocus={handleJumpToCoordinates} />
 
           <MapControlsOverlay
             camera={camera}

@@ -22,6 +22,13 @@
   .row.top { font-weight:700; }
   .num { text-align:right; font-variant-numeric:tabular-nums; }
   #meta { color:var(--muted); font-size:13px; margin-top:10px; }
+  #upload { margin:16px 0 0; padding:14px; border:2px dashed #444; border-radius:8px; text-align:center; cursor:pointer; }
+  #upload.drag { border-color:#4c8dff; background:#16202f; }
+  #upload b { color:var(--fg); }
+  #upload input { display:none; }
+  #answer { margin-top:8px; font-size:15px; min-height:1.3em; }
+  #answer.warn { color:var(--warn); font-weight:700; }
+  #answer.err { color:#ff6b6b; }
 </style>
 </head>
 <body>
@@ -32,6 +39,12 @@
   <div id="beacon">Beacon off</div>
   <div id="scores"></div>
   <div id="meta">Waiting for the board…</div>
+  <label id="upload">
+    <input type="file" id="file" accept="image/*">
+    <b>📷 Show the board a photo</b><br>
+    <span style="color:var(--muted);font-size:14px">Click or drop a JPG/PNG. The model classifies it as if the camera saw it.</span>
+    <div id="answer"></div>
+  </label>
 </main>
 <script>
 const CLASSES = ["warn_animal", "small_animal", "no_animal"];
@@ -56,8 +69,34 @@ function render(s) {
   beacon.classList.toggle("on", s.beacon);
   beacon.textContent = s.beacon ? "⚠️ BEACON ON: animal on the road" : "Beacon off";
   const hits = s.recent.filter(Boolean).length;
-  meta.textContent = `Source: ${s.source}${s.camera ? "" : " (no camera)"} · sure warn frames: ${hits} of last ${s.recent.length} (need ${s.needed} of ${s.window} at ≥${Math.round(s.min_confidence * 100)}%)`;
+  const dash = s.dashboard ? ` · dashboard: ${s.unsent ? s.unsent + " unsent" : "ok"}` : " · dashboard: not set";
+  meta.textContent = `Source: ${s.source}${s.camera ? "" : " (no camera)"} · sure warn frames: ${hits} of last ${s.recent.length} (need ${s.needed} of ${s.window} at ≥${Math.round(s.min_confidence * 100)}%)${dash}`;
 }
+const drop = document.getElementById("upload");
+const fileInput = document.getElementById("file");
+const answer = document.getElementById("answer");
+async function sendPhoto(file) {
+  if (!file) return;
+  answer.className = ""; answer.textContent = `Classifying ${file.name}…`;
+  try {
+    // Always send a Content-Type, so the board reads the body as raw image bytes.
+    const r = await fetch("/upload", { method: "POST", body: file,
+      headers: { "Content-Type": file.type || "application/octet-stream" } });
+    const a = await r.json();
+    if (!r.ok || a.error) throw new Error(a.error || a.detail || r.statusText);
+    answer.className = a.beacon ? "warn" : "";
+    answer.textContent = `${a.label} ${Math.round(a.conf * 100)}%` +
+      (a.beacon ? " → beacon on!" : a.label === "warn_animal" ? ` (below ${Math.round(a.min_confidence * 100)}%, no beacon)` : "");
+  } catch (e) {
+    answer.className = "err"; answer.textContent = `Upload failed: ${e.message}`;
+  }
+  fileInput.value = "";
+}
+fileInput.addEventListener("change", () => sendPhoto(fileInput.files[0]));
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("drag"); sendPhoto(e.dataTransfer.files[0]); });
+
 setInterval(() => fetch("/status").then(r => r.json()).then(render).catch(() => { meta.textContent = "Board not reachable"; }), 500);
 </script>
 </body>
