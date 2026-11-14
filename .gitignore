@@ -19,3 +19,15 @@ venv/
 .env
 .env.*
 !.env.example
+
+# Edge Impulse model binaries (22 MB; rebuild from the Edge Impulse project)
+arduino/models/*.eim
+
+# Image data: kept locally and in the Edge Impulse project, not in git
+dataset/raw/
+dataset/ei_upload/
+dataset/warn_animal/
+dataset/synthetic/no_animal/
+arduino/board-backup/ArduinoApps/capture/captures/
+arduino/*/captures/
+arduino/*/data/

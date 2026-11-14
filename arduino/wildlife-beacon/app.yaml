@@ -1,0 +1,9 @@
+name: wildlife-beacon
+description: Beacon logic for the roadside unit (PLAN.md, step A5).
+ports: []
+bricks:
+- arduino:image_classification:
+    variables:
+      EI_CLASSIFICATION_MODEL: /home/arduino/.arduino-bricks/ei-models/wildlife-3class-v1.eim
+- arduino:web_ui
+icon: 🚨

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capture training photos</title>
+<style>
+  :root { --bg:#111; --fg:#eee; --muted:#999; --accent:#f5a623; --rec:#e5484d; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px system-ui, sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:0 0 8px; }
+  p { color:var(--muted); margin:0 0 12px; }
+  img { width:100%; border-radius:8px; background:#000; display:block; }
+  .buttons { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin:12px 0; }
+  button { padding:14px 8px; font-size:15px; border:2px solid #333; border-radius:8px; background:#222; color:var(--fg); cursor:pointer; }
+  button.active { border-color:var(--rec); background:#3a1517; }
+  button.stop { border-color:var(--accent); }
+  .count { display:block; font-size:13px; color:var(--muted); margin-top:4px; }
+  #status { font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Capture training photos</h1>
+  <p>Pick a class, show pictures of it to the camera, then press Stop. About 3 photos per second.</p>
+  <img src="/stream" alt="Camera view">
+  <div class="buttons" id="buttons"></div>
+  <div id="status">Not recording</div>
+</main>
+<script>
+const CLASSES = ["warn_animal", "small_animal", "person", "vehicle", "empty"];
+const box = document.getElementById("buttons");
+const statusEl = document.getElementById("status");
+const btns = {};
+for (const c of [...CLASSES, "off"]) {
+  const b = document.createElement("button");
+  b.textContent = c === "off" ? "Stop" : c;
+  if (c === "off") b.className = "stop";
+  const n = document.createElement("span");
+  n.className = "count";
+  b.appendChild(n);
+  b.onclick = () => fetch(`/label/${c}`).then(r => r.json()).then(render);
+  box.appendChild(b);
+  btns[c] = { b, n };
+}
+function render(s) {
+  for (const c of CLASSES) {
+    btns[c].n.textContent = `${s.counts[c] || 0} photos`;
+    btns[c].b.classList.toggle("active", s.label === c);
+  }
+  statusEl.textContent = s.label === "off" ? "Not recording" : `Recording: ${s.label}`;
+}
+setInterval(() => fetch("/status").then(r => r.json()).then(render).catch(() => {}), 1000);
+</script>
+</body>
+</html>

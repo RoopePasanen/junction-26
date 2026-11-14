@@ -1,0 +1,8 @@
+name: Copy of Real-time Accelerometer Data
+description: Real-time Accelerometer data visualization and movement detection using Modulino Movement sensor
+ports: []
+bricks:
+- arduino:web_ui: {}
+- arduino:motion_detection:
+    model: updown-wave-motion-detection
+icon: 🐍

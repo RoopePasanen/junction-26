@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wildlife Beacon</title>
+<style>
+  :root { --bg:#111; --fg:#eee; --muted:#999; --warn:#f5a623; --ok:#3fb950; --bar:#2a2a2a; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  p { color:var(--muted); margin:0 0 12px; font-size:14px; }
+  img { width:100%; border-radius:8px; background:#000; display:block; aspect-ratio:4/3; object-fit:contain; }
+  #beacon { margin:12px 0; padding:14px; border-radius:8px; font-weight:700; font-size:20px; text-align:center;
+            background:#1d2a1f; color:var(--ok); border:2px solid #24452a; }
+  #beacon.on { background:#3a2a0a; color:var(--warn); border-color:var(--warn); animation:blink .5s steps(1) infinite; }
+  @keyframes blink { 50% { background:#111; } }
+  .row { display:grid; grid-template-columns:120px 1fr 56px; gap:8px; align-items:center; margin:6px 0; font-size:15px; }
+  .track { background:var(--bar); border-radius:4px; height:16px; overflow:hidden; }
+  .fill { height:100%; width:0; background:#4c8dff; transition:width .2s; }
+  .row.warn .fill { background:var(--warn); }
+  .row.top { font-weight:700; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  #meta { color:var(--muted); font-size:13px; margin-top:10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🚨 Wildlife Beacon: live view</h1>
+  <p>What the camera sees, as classified on the UNO Q. Pictures are never saved.</p>
+  <img src="/stream" alt="Camera view">
+  <div id="beacon">Beacon off</div>
+  <div id="scores"></div>
+  <div id="meta">Waiting for the board…</div>
+</main>
+<script>
+const CLASSES = ["warn_animal", "small_animal", "no_animal"];
+const box = document.getElementById("scores");
+const rows = {};
+for (const c of CLASSES) {
+  const r = document.createElement("div");
+  r.className = "row" + (c === "warn_animal" ? " warn" : "");
+  r.innerHTML = `<span>${c}</span><div class="track"><div class="fill"></div></div><span class="num">–</span>`;
+  box.appendChild(r);
+  rows[c] = { r, fill: r.querySelector(".fill"), num: r.querySelector(".num") };
+}
+const beacon = document.getElementById("beacon");
+const meta = document.getElementById("meta");
+function render(s) {
+  for (const c of CLASSES) {
+    const v = s.scores[c] ?? (s.label === c ? s.conf : 0);
+    rows[c].fill.style.width = `${Math.round(v * 100)}%`;
+    rows[c].num.textContent = `${Math.round(v * 100)}%`;
+    rows[c].r.classList.toggle("top", s.label === c);
+  }
+  beacon.classList.toggle("on", s.beacon);
+  beacon.textContent = s.beacon ? "⚠️ BEACON ON: animal on the road" : "Beacon off";
+  const hits = s.recent.filter(Boolean).length;
+  meta.textContent = `Source: ${s.source}${s.camera ? "" : " (no camera)"} · sure warn frames: ${hits} of last ${s.recent.length} (need ${s.needed} of ${s.window} at ≥${Math.round(s.min_confidence * 100)}%)`;
+}
+setInterval(() => fetch("/status").then(r => r.json()).then(render).catch(() => { meta.textContent = "Board not reachable"; }), 500);
+</script>
+</body>
+</html>
