@@ -34,7 +34,7 @@
 <body>
 <main>
   <h1>🚨 Wildlife Beacon: live view</h1>
-  <p>What the camera sees, as classified on the UNO Q. Pictures are never saved.</p>
+  <p>What the camera sees, with the animals the UNO Q boxed. Pictures are never saved.</p>
   <img src="/stream" alt="Camera view">
   <div id="beacon">Beacon off</div>
   <div id="scores"></div>
@@ -42,7 +42,7 @@
   <label id="upload">
     <input type="file" id="file" accept="image/*">
     <b>📷 Show the board a photo</b><br>
-    <span style="color:var(--muted);font-size:14px">Click or drop a JPG/PNG. The model classifies it as if the camera saw it.</span>
+    <span style="color:var(--muted);font-size:14px">Click or drop a JPG/PNG. The model boxes the animals as if the camera saw it.</span>
     <div id="answer"></div>
   </label>
 </main>
@@ -77,7 +77,7 @@ const fileInput = document.getElementById("file");
 const answer = document.getElementById("answer");
 async function sendPhoto(file) {
   if (!file) return;
-  answer.className = ""; answer.textContent = `Classifying ${file.name}…`;
+  answer.className = ""; answer.textContent = `Checking ${file.name}…`;
   try {
     // Always send a Content-Type, so the board reads the body as raw image bytes.
     const r = await fetch("/upload", { method: "POST", body: file,

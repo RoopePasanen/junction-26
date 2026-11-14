@@ -1,0 +1,29 @@
+{
+    "result": {
+        "bounding_boxes": [
+            {
+                "height": 115.2,
+                "label": "Small",
+                "value": 0.6904051303863525,
+                "width": 140.8,
+                "x": 444.8,
+                "y": 451.20000000000005
+            }
+        ],
+        "resizeMode": "fit-shortest",
+        "resized": {
+            "originalWidth": 1024,
+            "originalHeight": 1024,
+            "newWidth": 320,
+            "newHeight": 320
+        }
+    },
+    "timing": {
+        "anomaly": 0,
+        "classification": 351,
+        "dsp": 3,
+        "json": 0,
+        "msg_handler": 354,
+        "stdin": 0
+    }
+}

@@ -1,0 +1,20 @@
+{
+    "result": {
+        "bounding_boxes": [],
+        "resizeMode": "fit-shortest",
+        "resized": {
+            "originalWidth": 1024,
+            "originalHeight": 1024,
+            "newWidth": 320,
+            "newHeight": 320
+        }
+    },
+    "timing": {
+        "anomaly": 0,
+        "classification": 340,
+        "dsp": 3,
+        "json": 0,
+        "msg_handler": 344,
+        "stdin": 0
+    }
+}

@@ -1,10 +1,12 @@
 # Wildlife Beacon: Linux (Python) side of the App Lab app.
 #
 # What it does, in plain words:
-#   1. Every half second, take a camera picture and ask our Edge Impulse model
-#      what it shows -> classify()  (warn_animal / small_animal / no_animal)
-#   2. Turn the beacon on if a warn animal (deer, moose...) was seen with
-#      more than 70% confidence in at least 2 of the last 3 checks.
+#   1. Every half second, take a camera picture and ask the Edge Impulse object
+#      detection model (Aarne's) to box the animals in it. A "Warn" box (deer, moose...)
+#      counts as warn_animal, a "Small" box (fox, hare...) as small_animal, no box as
+#      no_animal -> classify()
+#   2. Turn the beacon on if a warn animal was boxed with at least 50% confidence
+#      in at least 2 of the last 3 checks.
 #   3. Keep the beacon on for 30 s after the last sighting.
 #   4. Write every sighting as one JSON line in data/events.jsonl (format B1 in PLAN.md)
 #      and send it to the dashboard (DASHBOARD_URL): once when it starts, once when
@@ -12,9 +14,10 @@
 #
 # Demo: a photo uploaded on the web page (http://<board-ip>:7000) is classified by the
 # same model and "shown" to the beacon for a few seconds, as if the camera saw it.
+# The boxes are drawn on the live view and on the thumbnail sent to the dashboard.
 #
-# The model file is set in app.yaml (brick variable EI_CLASSIFICATION_MODEL),
-# currently ~/.arduino-bricks/ei-models/wildlife-3class-v1.eim on the board.
+# The model is set in app.yaml (arduino:object_detection, model ei-model-1164426-3,
+# i.e. ~/.arduino-bricks/models/custom-ei/ei-model-1164426-3/model.eim on the board).
 # Camera pictures are never saved: frames only live in memory. Uploaded photos are
 # only kept as a small thumbnail in the event, so the dashboard can show them.
 #
@@ -39,7 +42,7 @@ from fastapi import Body
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from arduino.app_utils import App, Bridge, Logger
-from arduino.app_bricks.image_classification import ImageClassification
+from arduino.app_bricks.object_detection import ObjectDetection
 from arduino.app_bricks.web_ui import WebUI
 from arduino.app_peripherals.camera import Camera
 
@@ -61,7 +64,7 @@ DEVICE_LNG = 24.54689
 DASHBOARD_URL = ""
 
 # When does the light start flashing?
-MIN_CONFIDENCE = 0.70     # the model must be at least this sure (0.70 = 70%)...
+MIN_CONFIDENCE = 0.50     # a Warn box must be at least this sure (0.50 = 50%)...
 NEEDED = 2                # ...in at least this many pictures...
 WINDOW = 3                # ...out of the last this many pictures
 CHECK_EVERY_S = 0.5       # how often a picture is checked (0.5 = twice a second)
@@ -83,7 +86,7 @@ STANDIN_SIGHTING_S = 1.5  # a knob press/turn "shows" an animal this long
 UPLOAD_SIGHTING_S = 3.0   # an uploaded photo is "in view" this long (6 checks -> beacon fires)
 UPLOAD_EVENT_GAP_S = 5.0  # an upload event ends this long after the photo leaves the view
 UPLOAD_MAX_BYTES = 15 * 1024 * 1024
-THUMB_WIDTH = 240         # thumbnail sent to the dashboard
+THUMB_WIDTH = 400         # thumbnail sent to the dashboard (big enough to read the boxes)
 
 EVENT_LOG = Path(__file__).resolve().parent.parent / "data" / "events.jsonl"
 
@@ -124,8 +127,50 @@ Bridge.provide("on_knob_turned", on_knob_turned)
 # ---- Camera + Edge Impulse model ------------------------------------------------
 CAMERA_RETRY_S = 5.0      # no camera yet? try again this often (knob still works meanwhile)
 
-model = ImageClassification(confidence=0.0)   # return all scores; we apply MIN_CONFIDENCE ourselves
+BOX_MIN = 0.30            # boxes below this are ignored (and not drawn)
+# Model class -> our class names (the dashboard and the event format use these).
+CLASS_MAP = {"warn": "warn_animal", "small": "small_animal"}
+BOX_COLORS = {"warn_animal": (40, 40, 230), "small_animal": (60, 170, 240)}   # BGR: red, amber
+
+model = ObjectDetection(confidence=BOX_MIN)
 camera = None
+
+
+def detect(img) -> tuple[dict, list, bytes, np.ndarray]:
+    """Box the animals in one picture (BGR array).
+
+    Returns (scores, boxes, jpg, drawn): scores per class 0..1 (best box of each class,
+    no_animal = 1 - best box), the boxes as (class, conf, x1, y1, x2, y2) in image
+    pixels, and the picture with the boxes drawn on it (as JPG and as an array).
+    """
+    ok, jpg = cv2.imencode(".jpg", img)
+    if not ok:
+        raise ValueError("could not encode the picture")
+    out = model.detect(jpg.tobytes(), image_type="jpg", confidence=BOX_MIN) or {}
+    boxes = []
+    for d in out.get("detection") or []:
+        cls = CLASS_MAP.get(str(d.get("class_name", "")).lower())
+        if cls is None:
+            continue
+        conf = float(d.get("confidence") or 0) / 100.0   # the brick reports a percentage string
+        x1, y1, x2, y2 = (int(round(v)) for v in d.get("bounding_box_xyxy") or (0, 0, 0, 0))
+        boxes.append((cls, conf, x1, y1, x2, y2))
+    scores = {c: max([b[1] for b in boxes if b[0] == c] or [0.0]) for c in ("warn_animal", "small_animal")}
+    scores["no_animal"] = 1.0 - max(scores.values())
+    if boxes:
+        img = img.copy()
+        for cls, conf, x1, y1, x2, y2 in boxes:
+            color = BOX_COLORS[cls]
+            thick = max(2, img.shape[1] // 200)
+            cv2.rectangle(img, (x1, y1), (x2, y2), color, thick)
+            text = f"{'Warn' if cls == 'warn_animal' else 'Small'} {conf:.0%}"
+            scale = max(0.5, img.shape[1] / 900)
+            (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)
+            ty = max(y1, th + 6)
+            cv2.rectangle(img, (x1, ty - th - 6), (x1 + tw + 6, ty), color, -1)
+            cv2.putText(img, text, (x1 + 3, ty - 4), cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), 2)
+        ok, jpg = cv2.imencode(".jpg", img)
+    return scores, boxes, jpg.tobytes(), img
 
 # ---- Live web page (http://<board-ip>:7000) -------------------------------------
 # Shows the frame the model just classified, its scores and the beacon state.
@@ -201,15 +246,9 @@ def run_upload(job: dict):
     global new_upload, last_warn
     try:
         img = fit_width(job["img"], CAMERA_RESOLUTION[0])
-        ok, jpg = cv2.imencode(".jpg", img)
-        if not ok:
-            raise ValueError("could not encode the photo")
-        jpg = jpg.tobytes()
-        scores = scores_from(model.classify(jpg, image_type="jpg", confidence=0.0))
-        if not scores:
-            raise ValueError("model returned no result")
+        scores, boxes, jpg, drawn = detect(img)
         label = max(scores, key=scores.get)
-        ok, thumb = cv2.imencode(".jpg", fit_width(img, THUMB_WIDTH), [cv2.IMWRITE_JPEG_QUALITY, 70])
+        ok, thumb = cv2.imencode(".jpg", fit_width(drawn, THUMB_WIDTH), [cv2.IMWRITE_JPEG_QUALITY, 70])
         upload_view.update(until=time.time() + UPLOAD_SIGHTING_S, label=label, conf=scores[label],
                            scores=scores, jpg=jpg,
                            thumb="data:image/jpeg;base64," + base64.b64encode(thumb.tobytes()).decode() if ok else None)
@@ -219,9 +258,10 @@ def run_upload(job: dict):
         last_warn = 0.0
         new_upload = True
         warn = label == "warn_animal" and scores[label] >= MIN_CONFIDENCE
-        logger.info(f"uploaded photo -> {label} {scores[label]:.2f}")
+        logger.info(f"uploaded photo -> {label} {scores[label]:.2f}, {len(boxes)} box(es)")
         job["result"] = {"label": label, "conf": round(scores[label], 3),
                          "scores": {k: round(v, 3) for k, v in scores.items()},
+                         "boxes": [{"class": b[0], "conf": round(b[1], 3), "xyxy": b[2:]} for b in boxes],
                          "beacon": warn, "min_confidence": MIN_CONFIDENCE}
     except Exception as e:
         logger.warning(f"upload failed: {e}")
@@ -254,15 +294,8 @@ def get_camera():
     return camera
 
 
-def scores_from(out) -> dict:
-    """Turn the brick's answer into {class: confidence 0..1}."""
-    results = (out or {}).get("classification") or []
-    # The brick reports confidence as a percentage string, e.g. "97.35".
-    return {r.get("class_name"): float(r.get("confidence") or 0) / 100.0 for r in results}
-
-
 def classify_camera() -> tuple[str, float] | None:
-    """Take one picture and return (class, confidence 0..1) from our model, or None."""
+    """Take one picture and return (class, confidence 0..1) from the model, or None."""
     global camera
     cam = get_camera()
     if cam is None:
@@ -275,13 +308,8 @@ def classify_camera() -> tuple[str, float] | None:
         return None
     if frame is None:
         return None
-    ok, jpg = cv2.imencode(".jpg", frame)
-    if not ok:
-        return None
-    live["jpg"] = jpg.tobytes()   # for the live view on the web page (memory only)
-    scores = scores_from(model.classify(live["jpg"], image_type="jpg", confidence=0.0))
-    if not scores:
-        return None
+    scores, _boxes, jpg, _ = detect(frame)
+    live["jpg"] = jpg   # live view with boxes, for the web page (memory only)
     label = max(scores, key=scores.get)
     last_logged["scores"] = scores
     live["scores"] = scores

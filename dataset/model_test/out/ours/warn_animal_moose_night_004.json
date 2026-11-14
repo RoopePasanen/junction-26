@@ -1,0 +1,24 @@
+{
+    "result": {
+        "classification": {
+            "no_animal": 0,
+            "small_animal": 0,
+            "warn_animal": 0.9999281167984009
+        },
+        "resizeMode": "fit-shortest",
+        "resized": {
+            "originalWidth": 1024,
+            "originalHeight": 1024,
+            "newWidth": 160,
+            "newHeight": 160
+        }
+    },
+    "timing": {
+        "anomaly": 0,
+        "classification": 64,
+        "dsp": 1,
+        "json": 0,
+        "msg_handler": 64,
+        "stdin": 0
+    }
+}

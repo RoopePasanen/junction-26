@@ -1,0 +1,37 @@
+{
+    "result": {
+        "bounding_boxes": [
+            {
+                "height": 128,
+                "label": "Small",
+                "value": 0.5595273971557617,
+                "width": 147.20000000000002,
+                "x": 432,
+                "y": 425.6
+            },
+            {
+                "height": 124.80000000000001,
+                "label": "Small",
+                "value": 0.5239462852478027,
+                "width": 108.80000000000001,
+                "x": 624,
+                "y": 419.20000000000005
+            }
+        ],
+        "resizeMode": "fit-shortest",
+        "resized": {
+            "originalWidth": 1024,
+            "originalHeight": 1024,
+            "newWidth": 320,
+            "newHeight": 320
+        }
+    },
+    "timing": {
+        "anomaly": 0,
+        "classification": 340,
+        "dsp": 3,
+        "json": 0,
+        "msg_handler": 343,
+        "stdin": 0
+    }
+}
