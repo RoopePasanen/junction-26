@@ -4,12 +4,13 @@
  * Real data: collisions per site (Ramboll 2021–2025) and the live board (sign-001).
  * Simulated data (labelled): detections from the other pilot units.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   BatteryLow,
   BatteryMedium,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Moon,
   Radio,
@@ -38,10 +39,38 @@ import {
 } from '../../utils/pilotSimulation';
 import { useLiveEvents } from '../LiveUnitsLayer';
 import { BarChart, HBarList } from './BarChart';
+import { DetectionAlert } from './DetectionAlert';
 import { SiteMap, type MapUnit } from './SiteMap';
 
 // ---- Settings ----------------------------------------------------------------------
-export const CUSTOMER_NAME = 'Uusimaa road region';
+const MASALA = CUSTOMER_SITES.find((s) => s.id === 'kirkkonummi')!;
+
+// Customers the dashboard can show. Open one directly with ?customer=<id>.
+//  - uusimaa: the full regional pilot (1 real board + 17 simulated units)
+//  - demo:    only the real board at Masala, nothing simulated (live demo)
+const CUSTOMERS = [
+  { id: 'uusimaa', name: 'Uusimaa road region', sites: CUSTOMER_SITES },
+  {
+    id: 'demo',
+    name: 'Kirkkonummi municipality',
+    sites: [{ ...MASALA, units: MASALA.units.filter((u) => u.real) }],
+  },
+] satisfies Array<{ id: string; name: string; sites: CustomerSite[] }>;
+type Customer = (typeof CUSTOMERS)[number];
+
+function initialCustomer(): Customer {
+  let id = new URLSearchParams(window.location.search).get('customer');
+  if (!id) {
+    try {
+      id = localStorage.getItem('dashboard-customer');
+    } catch {
+      // storage blocked
+    }
+  }
+  return CUSTOMERS.find((c) => c.id === id) ?? CUSTOMERS[0];
+}
+
+const ALERT_SHOW_MS = 30_000; // the big "deer detected" pop-up closes by itself after this
 const RADAR_PER_SITE_EUR = 40_000; // InnoTrafik radar warning site (PLAN.md)
 const UNIT_PRICE_EUR = 1_500; // ASSUMPTION: our unit installed. Replace with the real BOM + install cost.
 const LAST_FULL_YEAR = '2025';
@@ -92,6 +121,8 @@ function useUnitStatus() {
 }
 
 export function DashboardView() {
+  const [customer, setCustomer] = useState<Customer>(initialCustomer);
+  const sites: CustomerSite[] = customer.sites;
   const [now, setNow] = useState(() => Date.now());
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ point: { lat: number; lng: number }; zoom: number; key: number } | null>(null);
@@ -105,22 +136,54 @@ export function DashboardView() {
 
   useEffect(() => {
     if (!latestAlert) return;
-    const id = setTimeout(dismissAlert, 10000);
+    const id = setTimeout(dismissAlert, ALERT_SHOW_MS);
     return () => clearTimeout(id);
   }, [latestAlert]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const unitIndex = useMemo(() => {
     const m = new Map<string, { site: CustomerSite; lat: number; lng: number; real: boolean }>();
-    for (const s of CUSTOMER_SITES) for (const u of s.units) m.set(u.id, { site: s, lat: u.lat, lng: u.lng, real: u.real });
+    for (const s of sites) for (const u of s.units) m.set(u.id, { site: s, lat: u.lat, lng: u.lng, real: u.real });
     return m;
-  }, []);
+  }, [customer.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Simulated history, recomputed once per hour bucket so it stays stable.
   const hourBucket = Math.floor(now / 3_600_000);
   const simulated = useMemo(() => {
     const t = Date.now();
-    return CUSTOMER_SITES.flatMap((s) => s.units.filter((u) => !u.real).flatMap((u) => simulateUnit(s, u, t)));
-  }, [hourBucket]); // eslint-disable-line react-hooks/exhaustive-deps
+    return sites.flatMap((s) => s.units.filter((u) => !u.real).flatMap((u) => simulateUnit(s, u, t)));
+  }, [hourBucket, customer.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const unitCount = sites.reduce((a, s) => a + s.units.length, 0);
+  const simulatedCount = sites.reduce((a, s) => a + s.units.filter((u) => !u.real).length, 0);
+  const detTag = simulatedCount > 0 ? 'pilot' : 'real'; // detections: simulated or all from the real board
+
+  const switchCustomer = (id: string) => {
+    const c = CUSTOMERS.find((x) => x.id === id) ?? CUSTOMERS[0];
+    setCustomer(c);
+    setSelectedSiteId(null);
+    setFocus(null);
+    try {
+      localStorage.setItem('dashboard-customer', c.id);
+    } catch {
+      // storage blocked
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('customer', c.id);
+    window.history.replaceState(null, '', url);
+  };
+
+  // Only alert for this customer's own units.
+  const alert = latestAlert && unitIndex.has(latestAlert.device_id) ? latestAlert : null;
+  const mapRef = useRef<HTMLDivElement>(null);
+  const showOnMap = (deviceId: string) => {
+    const u = unitIndex.get(deviceId);
+    if (u) {
+      setSelectedSiteId(u.site.id);
+      setFocus({ point: { lat: u.lat, lng: u.lng }, zoom: 15, key: Date.now() });
+    }
+    dismissAlert();
+    mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
 
   // Real detections from the board, placed at the unit's position on the map.
   const real: Detection[] = useMemo(
@@ -155,8 +218,8 @@ export function DashboardView() {
     [simulated, real, since]
   );
 
-  const selectedSite = CUSTOMER_SITES.find((s) => s.id === selectedSiteId) ?? null;
-  const scopeSites = selectedSite ? [selectedSite] : CUSTOMER_SITES;
+  const selectedSite = sites.find((s) => s.id === selectedSiteId) ?? null;
+  const scopeSites = selectedSite ? [selectedSite] : sites;
   const detections = selectedSite ? allDetections.filter((d) => d.site_id === selectedSite.id) : allDetections;
   const collisions = useMemo(() => sumStats(scopeSites), [selectedSiteId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -168,7 +231,7 @@ export function DashboardView() {
     real.filter((d) => d.status === 'active' && d.warning).map((d) => d.device_id)
   );
 
-  const mapUnits: MapUnit[] = CUSTOMER_SITES.flatMap((s) =>
+  const mapUnits: MapUnit[] = sites.flatMap((s) =>
     s.units.map((u) => ({
       id: u.id,
       siteId: s.id,
@@ -236,12 +299,12 @@ export function DashboardView() {
   const deerBySite = new Map<string, number>();
   for (const d of week) if (d.class === 'warn_animal') deerBySite.set(d.site_id, (deerBySite.get(d.site_id) ?? 0) + 1);
   const topSiteId = [...deerBySite.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const topSite = CUSTOMER_SITES.find((s) => s.id === topSiteId);
+  const topSite = sites.find((s) => s.id === topSiteId);
 
   // Needs attention: offline units, low batteries.
   const attention: Array<{ unit: string; site: string; text: string; kind: 'offline' | 'battery' }> = [];
   for (const u of scopeUnits) {
-    const siteName = CUSTOMER_SITES.find((s) => s.id === u.siteId)?.name ?? '';
+    const siteName = sites.find((s) => s.id === u.siteId)?.name ?? '';
     if (!u.online) attention.push({ unit: u.id, site: siteName, text: u.real ? 'offline (real board)' : 'offline', kind: 'offline' });
     if (!u.real) {
       const h = simulateHealth({ id: u.id, real: false, lat: 0, lng: 0, nearby: 0 });
@@ -251,23 +314,55 @@ export function DashboardView() {
 
   const selectSite = (id: string | null) => {
     setSelectedSiteId(id);
-    const s = CUSTOMER_SITES.find((x) => x.id === id);
+    const s = sites.find((x) => x.id === id);
     if (s) setFocus({ point: s.center, zoom: 13, key: Date.now() });
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-slate-50">
+    <div className="relative flex h-full min-h-0 flex-col bg-slate-50">
+      {/* Beacon alert: big pop-up the moment a unit turns its beacon on */}
+      {alert && (
+        <DetectionAlert
+          key={alert.event_id}
+          event={alert}
+          siteName={unitIndex.get(alert.device_id)?.site.name ?? alert.device_id}
+          showMs={ALERT_SHOW_MS}
+          onShowOnMap={() => showOnMap(alert.device_id)}
+          onClose={dismissAlert}
+        />
+      )}
+
       {/* Header */}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3 sm:px-6">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
             Wildlife warning pilot
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-amber-800">
-              17 of 18 units simulated
-            </span>
+            {simulatedCount > 0 ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-amber-800">
+                {simulatedCount} of {unitCount} units simulated
+              </span>
+            ) : (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-emerald-800">
+                {unitCount === 1 ? '1 real unit' : `${unitCount} real units`} · live
+              </span>
+            )}
           </div>
-          <h1 className="truncate text-xl font-bold tracking-tight text-slate-950">
-            {CUSTOMER_NAME}
+          <h1 className="flex min-w-0 items-center text-xl font-bold tracking-tight text-slate-950">
+            <label className="relative inline-flex min-w-0 items-center">
+              <span className="sr-only">Customer</span>
+              <select
+                value={customer.id}
+                onChange={(e) => switchCustomer(e.target.value)}
+                className="min-w-0 cursor-pointer appearance-none truncate rounded-md bg-transparent pr-6 font-bold hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+              >
+                {CUSTOMERS.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-0 h-4 w-4 text-slate-400" />
+            </label>
             {selectedSite && (
               <span className="text-slate-400">
                 {' '}
@@ -301,39 +396,6 @@ export function DashboardView() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[1600px] space-y-4 p-4 sm:p-5">
-          {/* Beacon alert */}
-          {latestAlert && (
-            <div className="flex items-center gap-4 rounded-2xl border-2 border-red-500 bg-red-50 p-3 shadow-sm">
-              {latestAlert.thumb ? (
-                <img src={latestAlert.thumb} alt="" className="h-16 w-24 rounded-lg object-cover" />
-              ) : (
-                <AlertTriangle className="h-10 w-10 text-red-600" />
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-bold text-red-900">
-                  Beacon on · {unitIndex.get(latestAlert.device_id)?.site.name ?? latestAlert.device_id}
-                </div>
-                <div className="text-sm text-red-800">
-                  Deer or moose on the road, detected by {latestAlert.device_id} with{' '}
-                  {Math.round(latestAlert.confidence * 100)}% confidence. Drivers are being warned now.
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const u = unitIndex.get(latestAlert.device_id);
-                  if (u) {
-                    setSelectedSiteId(u.site.id);
-                    setFocus({ point: { lat: u.lat, lng: u.lng }, zoom: 15, key: Date.now() });
-                  }
-                  dismissAlert();
-                }}
-                className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
-              >
-                Show on map
-              </button>
-            </div>
-          )}
 
           {/* Hero: result, activity, what needs me */}
           <section className="grid gap-3 lg:grid-cols-12">
@@ -368,7 +430,7 @@ export function DashboardView() {
               </div>
               <p className="mt-2 text-[11px] leading-snug text-emerald-200">
                 {pilotWeeks} weeks of pilot. Expected = the same weeks' average in 2021–2025 (real data) on{' '}
-                {selectedSite ? 'this site' : `your ${CUSTOMER_SITES.length} stretches`}
+                {selectedSite ? 'this site' : `your ${sites.length} stretches`}
                 {roadKmText ? ` (${roadKmText})` : ''}.
               </p>
             </div>
@@ -379,7 +441,7 @@ export function DashboardView() {
                 <span className="flex items-center gap-1.5">
                   <Radio className="h-4 w-4" /> Driver warnings · 7 days
                 </span>
-                <Tag kind="pilot" />
+                <Tag kind={detTag} />
               </div>
               <div className="mt-3 text-5xl font-bold tracking-tight tabular-nums text-slate-950">{fmt(weekWarnings)}</div>
               <p className="mt-2 text-[11px] leading-snug text-slate-500">
@@ -435,7 +497,7 @@ export function DashboardView() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-7">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-900">This week</h2>
-                <Tag kind="pilot" />
+                <Tag kind={detTag} />
               </div>
               <p className="mt-2 text-sm leading-relaxed text-slate-700">
                 Your units warned drivers <b className="text-slate-950">{fmt(weekWarnings)} times</b>, mostly at{' '}
@@ -457,9 +519,9 @@ export function DashboardView() {
 
           {/* Map */}
           <Card className="overflow-hidden p-0">
-            <div className="h-[460px] sm:h-[540px]">
+            <div ref={mapRef} className="h-[460px] sm:h-[540px]">
               <SiteMap
-                sites={CUSTOMER_SITES}
+                sites={sites}
                 units={mapUnits}
                 heat={REGION_HEAT}
                 selectedSiteId={selectedSiteId}
@@ -475,7 +537,7 @@ export function DashboardView() {
               <CardTitle
                 title="When animals are on the road"
                 note={`Detections by hour, last ${SIM_DAYS} days`}
-                tag="pilot"
+                tag={detTag}
               />
               <BarChart
                 ariaLabel="Detections by hour of day"
@@ -545,7 +607,7 @@ export function DashboardView() {
                 <h2 className="text-sm font-semibold text-slate-900">Pilot sites</h2>
                 <span className="text-[11px] text-slate-500">
                   {mapUnits.length} units ≈ €{fmt(Math.round((mapUnits.length * UNIT_PRICE_EUR) / 1000))}k (est.) vs €
-                  {fmt((CUSTOMER_SITES.length * RADAR_PER_SITE_EUR) / 1000)}k for radar at {CUSTOMER_SITES.length} sites
+                  {fmt((sites.length * RADAR_PER_SITE_EUR) / 1000)}k for radar at {sites.length} sites
                 </span>
               </div>
               <div className="overflow-x-auto">
@@ -561,7 +623,7 @@ export function DashboardView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[...CUSTOMER_SITES]
+                    {[...sites]
                       .sort((a, b) => (b.collisions.byYear[LAST_FULL_YEAR] ?? 0) - (a.collisions.byYear[LAST_FULL_YEAR] ?? 0))
                       .map((s) => {
                         const sd = allDetections.filter((d) => d.site_id === s.id);
@@ -639,8 +701,13 @@ export function DashboardView() {
               <a href={DATA_SOURCE_URL} target="_blank" rel="noreferrer" className="underline">
                 source
               </a>
-              ) and the live board sign-001. <Tag kind="pilot" /> Detections of the 17 other units are simulated from
-              real seasonal and daily patterns.
+              ) and the live board sign-001.{' '}
+              {simulatedCount > 0 && (
+                <>
+                  <Tag kind="pilot" /> Detections of the {simulatedCount} other units are simulated from real seasonal and
+                  daily patterns.
+                </>
+              )}
             </span>
             <span className="inline-flex items-center gap-1">
               <BatteryMedium className="h-3.5 w-3.5" /> Unit price is an estimate.
