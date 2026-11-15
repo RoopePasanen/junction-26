@@ -1,11 +1,23 @@
 /**
- * Dashboard map: light basemap, real collision heat layer, the customer's sites and
- * their units. Drag to pan, wheel or +/- to zoom. Markers are HTML on top of the tiles.
+ * Dashboard map. The base map is the planner's own map (CanvasFinlandMap: canvas tiles,
+ * smooth wheel zoom, drag to pan, kept inside Finland). On top of it, using the same
+ * camera: the real collision heat layer (canvas) and the customer's sites and units
+ * (HTML markers).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Minus, Plus, Scan } from 'lucide-react';
 import type { CustomerSite } from '../../data/customerSites';
-import { latLngToWorldPixel, worldPixelToLatLng, type LatLngPoint } from '../../utils/mapMath';
+import { CanvasFinlandMap } from '../CanvasFinlandMap';
+import { DEFAULT_COVERAGE_CONFIG } from '../../utils/cameraPlanGeometry';
+import { DEFAULT_SIMULATOR_CONFIG } from '../../utils/crossingSimulator';
+import {
+  clampCamera,
+  latLngToWorldPixel,
+  zoomAroundScreenPoint,
+  ZOOM_STEP,
+  type CameraState,
+  type LatLngPoint,
+} from '../../utils/mapMath';
 
 export interface MapUnit {
   id: string;
@@ -27,62 +39,61 @@ interface SiteMapProps {
   focus?: { point: LatLngPoint; zoom: number; key: number } | null;
 }
 
-const TILE = 256;
-const MIN_Z = 7;
-const MAX_Z = 16;
-const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas';
-const tileUrl = (z: number, x: number, y: number) => `${ESRI}/World_Light_Gray_Base/MapServer/tile/${z}/${y}/${x}`;
-const labelUrl = (z: number, x: number, y: number) =>
-  `${ESRI}/World_Light_Gray_Reference/MapServer/tile/${z}/${y}/${x}`;
-
 // Sequential ramp (one hue family, light -> dark) for collision density.
 const HEAT_RAMP = ['#fde7c8', '#fbc78d', '#f59e53', '#e8702a', '#c9461a', '#9a2b12'];
 
-function fitView(sites: CustomerSite[], width: number, height: number) {
+const NOOP = () => {};
+
+function fitView(sites: CustomerSite[], width: number, height: number): CameraState {
   const lats = sites.map((s) => s.center.lat);
   const lngs = sites.map((s) => s.center.lng);
   const center = {
     lat: (Math.min(...lats) + Math.max(...lats)) / 2,
     lng: (Math.min(...lngs) + Math.max(...lngs)) / 2,
   };
-  for (let z = MAX_Z; z >= MIN_Z; z--) {
+  for (let z = 15; z >= 6; z -= 0.25) {
     const a = latLngToWorldPixel({ lat: Math.max(...lats), lng: Math.min(...lngs) }, z);
     const b = latLngToWorldPixel({ lat: Math.min(...lats), lng: Math.max(...lngs) }, z);
-    if (b.x - a.x < width - 160 && b.y - a.y < height - 140) return { center, zoom: z };
+    if (b.x - a.x < width - 160 && b.y - a.y < height - 140) {
+      return clampCamera({ center, zoom: z }, { width, height });
+    }
   }
-  return { center, zoom: MIN_Z };
+  return clampCamera({ center, zoom: 6 }, { width, height });
 }
 
 export function SiteMap({ sites, units, heat, selectedSiteId, onSelectSite, focus }: SiteMapProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   const heatRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const [view, setView] = useState<{ center: LatLngPoint; zoom: number } | null>(null);
+  const [camera, setCamera] = useState<CameraState | null>(null);
   const [showHeat, setShowHeat] = useState(true);
-  const drag = useRef<{ x: number; y: number; cx: number; cy: number; moved: boolean } | null>(null);
 
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setSize({ width: el.clientWidth, height: el.clientHeight }));
+    const ro = new ResizeObserver(() =>
+      setSize({ width: Math.floor(el.clientWidth), height: Math.floor(el.clientHeight) })
+    );
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
   const fit = useCallback(() => {
-    if (size.width) setView(fitView(sites, size.width, size.height));
+    if (size.width) setCamera(fitView(sites, size.width, size.height));
   }, [sites, size.width, size.height]);
 
   useEffect(() => {
-    if (!view && size.width) fit();
-  }, [view, size.width, fit]);
+    if (!camera && size.width) fit();
+  }, [camera, size.width, fit]);
 
   useEffect(() => {
-    if (focus) setView({ center: focus.point, zoom: focus.zoom });
+    if (focus && size.width) setCamera(clampCamera({ center: focus.point, zoom: focus.zoom }, size));
+    // only when a new focus request comes in
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
-  const zoom = view?.zoom ?? 9;
-  const centerWorld = view ? latLngToWorldPixel(view.center, zoom) : { x: 0, y: 0 };
+  const zoom = camera?.zoom ?? 9;
+  const centerWorld = camera ? latLngToWorldPixel(camera.center, zoom) : { x: 0, y: 0 };
   const toScreen = useCallback(
     (lat: number, lng: number) => {
       const wp = latLngToWorldPixel({ lat, lng }, zoom);
@@ -90,29 +101,6 @@ export function SiteMap({ sites, units, heat, selectedSiteId, onSelectSite, focu
     },
     [zoom, centerWorld.x, centerWorld.y, size.width, size.height]
   );
-
-  // Tiles in view
-  const tiles = useMemo(() => {
-    if (!view || !size.width) return [];
-    const left = centerWorld.x - size.width / 2;
-    const top = centerWorld.y - size.height / 2;
-    const n = 2 ** zoom;
-    const list: Array<{ key: string; url: string; label: string; x: number; y: number }> = [];
-    for (let ty = Math.floor(top / TILE); ty <= Math.floor((top + size.height) / TILE); ty++) {
-      if (ty < 0 || ty >= n) continue;
-      for (let tx = Math.floor(left / TILE); tx <= Math.floor((left + size.width) / TILE); tx++) {
-        const wx = ((tx % n) + n) % n;
-        list.push({
-          key: `${zoom}/${tx}/${ty}`,
-          url: tileUrl(zoom, wx, ty),
-          label: labelUrl(zoom, wx, ty),
-          x: tx * TILE - left,
-          y: ty * TILE - top,
-        });
-      }
-    }
-    return list;
-  }, [view, zoom, centerWorld.x, centerWorld.y, size.width, size.height]);
 
   // Heat layer
   const heatMax = useMemo(() => {
@@ -129,7 +117,7 @@ export function SiteMap({ sites, units, heat, selectedSiteId, onSelectSite, focu
 
   useEffect(() => {
     const canvas = heatRef.current;
-    if (!canvas || !size.width || !view) return;
+    if (!canvas || !size.width || !camera) return;
     if (canvas.width !== size.width || canvas.height !== size.height) {
       canvas.width = size.width; // 1:1 pixels is plenty for a blurred layer
       canvas.height = size.height;
@@ -186,102 +174,44 @@ export function SiteMap({ sites, units, heat, selectedSiteId, onSelectSite, focu
       c = heatCache.current = { key, x0, y0, w, h, canvas: blurred };
     }
     ctx.drawImage(c!.canvas, left - c!.x0, top - c!.y0, size.width, size.height, 0, 0, size.width, size.height);
-  }, [heat, heatMax, centerWorld.x, centerWorld.y, size.width, size.height, view, showHeat, zoom]);
+  }, [heat, heatMax, centerWorld.x, centerWorld.y, size.width, size.height, camera, showHeat, zoom]);
 
-  const zoomAt = (delta: number, sx = size.width / 2, sy = size.height / 2) => {
-    if (!view) return;
-    const nz = Math.max(MIN_Z, Math.min(MAX_Z, zoom + delta));
-    if (nz === zoom) return;
-    const anchor = worldPixelToLatLng(
-      { x: centerWorld.x + sx - size.width / 2, y: centerWorld.y + sy - size.height / 2 },
-      zoom
-    );
-    const aw = latLngToWorldPixel(anchor, nz);
-    setView({
-      zoom: nz,
-      center: worldPixelToLatLng({ x: aw.x - sx + size.width / 2, y: aw.y - sy + size.height / 2 }, nz),
-    });
-  };
-
-  // The map sits in a scrolling page: plain wheel scrolls the page, Ctrl/⌘ + wheel zooms.
-  const [wheelHint, setWheelHint] = useState(false);
-  const hintTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => {
-    const el = boxRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) {
-        setWheelHint(true);
-        clearTimeout(hintTimer.current);
-        hintTimer.current = setTimeout(() => setWheelHint(false), 1200);
-        return;
-      }
-      e.preventDefault(); // stop the browser's page zoom
-      const rect = el.getBoundingClientRect();
-      zoomRef.current(e.deltaY < 0 ? 1 : -1, e.clientX - rect.left, e.clientY - rect.top);
-    };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, []);
-  const zoomRef = useRef(zoomAt);
-  zoomRef.current = zoomAt;
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
-    drag.current = { x: e.clientX, y: e.clientY, cx: centerWorld.x, cy: centerWorld.y, moved: false };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = drag.current;
-    if (!d) return;
-    const dx = e.clientX - d.x;
-    const dy = e.clientY - d.y;
-    if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
-    setView({ zoom, center: worldPixelToLatLng({ x: d.cx - dx, y: d.cy - dy }, zoom) });
-  };
-  const onPointerUp = () => {
-    drag.current = null;
+  const zoomBy = (delta: number) => {
+    if (!camera) return;
+    setCamera(zoomAroundScreenPoint(camera, camera.zoom + delta, { dx: 0, dy: 0 }, size));
   };
 
   const showUnits = zoom >= 11;
 
   return (
-    <div
-      ref={boxRef}
-      className="relative h-full w-full touch-none select-none overflow-hidden bg-[#f2f1ee]"
-      onDoubleClick={(e) => {
-        const rect = boxRef.current!.getBoundingClientRect();
-        zoomAt(1, e.clientX - rect.left, e.clientY - rect.top);
-      }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      style={{ cursor: drag.current ? 'grabbing' : 'grab' }}
-    >
-      {tiles.map((t) => (
-        <img
-          key={t.key}
-          src={t.url}
-          alt=""
-          draggable={false}
-          className="pointer-events-none absolute h-64 w-64 max-w-none"
-          style={{ left: t.x, top: t.y }}
+    <div ref={boxRef} className="relative h-full w-full overflow-hidden bg-[#eef2f6]">
+      {camera && (
+        <CanvasFinlandMap
+          camera={camera}
+          mode="base"
+          mapTypeId="roadmap"
+          showLabels
+          showTerrain={false}
+          showGraticule={false}
+          areasOfInterest={[]}
+          selectedAreaId={null}
+          selectedCameraId={null}
+          coverageConfig={DEFAULT_COVERAGE_CONFIG}
+          visibleCameras={[]}
+          evaluatedEvents={[]}
+          simulatorConfig={DEFAULT_SIMULATOR_CONFIG}
+          selectedCrossingEventId={null}
+          onCameraChange={setCamera}
+          onCursorMove={NOOP}
+          onSelectCamera={NOOP}
+          onSelectArea={NOOP}
+          onSelectCrossingEvent={NOOP}
         />
-      ))}
-      <canvas ref={heatRef} className="pointer-events-none absolute inset-0 h-full w-full" />
-      {tiles.map((t) => (
-        <img
-          key={`l${t.key}`}
-          src={t.label}
-          alt=""
-          draggable={false}
-          className="pointer-events-none absolute h-64 w-64 max-w-none"
-          style={{ left: t.x, top: t.y }}
-        />
-      ))}
+      )}
+      <canvas ref={heatRef} className="pointer-events-none absolute inset-0 h-full w-full mix-blend-multiply" />
 
       {/* Sites */}
-      {view &&
+      {camera &&
         sites.map((s) => {
           const p = toScreen(s.center.lat, s.center.lng);
           const edge = toScreen(s.center.lat + s.radiusKm / 111.2, s.center.lng);
@@ -332,7 +262,7 @@ export function SiteMap({ sites, units, heat, selectedSiteId, onSelectSite, focu
         })}
 
       {/* Units (zoomed in) */}
-      {view &&
+      {camera &&
         showUnits &&
         units.map((u) => {
           const p = toScreen(u.lat, u.lng);
@@ -362,20 +292,12 @@ export function SiteMap({ sites, units, heat, selectedSiteId, onSelectSite, focu
           );
         })}
 
-      {wheelHint && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-900/25">
-          <span className="rounded-lg bg-slate-900/85 px-3 py-2 text-sm font-medium text-white">
-            Hold Ctrl and scroll to zoom the map
-          </span>
-        </div>
-      )}
-
       {/* Controls */}
       <div className="absolute right-3 top-3 flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <button type="button" onClick={() => zoomAt(1)} className="p-2 text-slate-700 hover:bg-slate-50" aria-label="Zoom in">
+        <button type="button" onClick={() => zoomBy(ZOOM_STEP)} className="p-2 text-slate-700 hover:bg-slate-50" aria-label="Zoom in">
           <Plus className="h-4 w-4" />
         </button>
-        <button type="button" onClick={() => zoomAt(-1)} className="border-t border-slate-100 p-2 text-slate-700 hover:bg-slate-50" aria-label="Zoom out">
+        <button type="button" onClick={() => zoomBy(-ZOOM_STEP)} className="border-t border-slate-100 p-2 text-slate-700 hover:bg-slate-50" aria-label="Zoom out">
           <Minus className="h-4 w-4" />
         </button>
         <button type="button" onClick={fit} className="border-t border-slate-100 p-2 text-slate-700 hover:bg-slate-50" aria-label="Show all sites">
@@ -401,7 +323,7 @@ export function SiteMap({ sites, units, heat, selectedSiteId, onSelectSite, focu
           </div>
         )}
       </div>
-      <div className="absolute bottom-1 right-2 text-[10px] text-slate-500">
+      <div className="pointer-events-none absolute bottom-1 right-2 text-[10px] text-slate-500">
         Basemap © Esri, HERE, Garmin, © OpenStreetMap contributors · collisions: Ramboll
       </div>
     </div>
