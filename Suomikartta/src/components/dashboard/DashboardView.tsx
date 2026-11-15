@@ -6,13 +6,11 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Activity,
   AlertTriangle,
   BatteryLow,
   BatteryMedium,
   CheckCircle2,
   ChevronRight,
-  Maximize2,
   Moon,
   Radio,
   Sun,
@@ -40,7 +38,6 @@ import {
 } from '../../utils/pilotSimulation';
 import { useLiveEvents } from '../LiveUnitsLayer';
 import { BarChart, HBarList } from './BarChart';
-import { DetectionPhotoModal, photoFor } from './DetectionPhoto';
 import { SiteMap, type MapUnit } from './SiteMap';
 
 // ---- Settings ----------------------------------------------------------------------
@@ -59,13 +56,6 @@ const SPECIES_LABEL: Record<string, string> = {
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const fmt = (n: number) => n.toLocaleString('fi-FI');
-const timeAgo = (t: number, now: number) => {
-  const s = Math.max(0, Math.round((now - t) / 1000));
-  if (s < 60) return `${s} s ago`;
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86400)} d ago`;
-};
 
 function sumStats(sites: CustomerSite[]) {
   const byYear: Record<string, number> = {};
@@ -105,7 +95,6 @@ export function DashboardView() {
   const [now, setNow] = useState(() => Date.now());
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ point: { lat: number; lng: number }; zoom: number; key: number } | null>(null);
-  const [photoId, setPhotoId] = useState<string | null>(null); // detection open in the photo viewer
   const { events: liveEvents, connection, latestAlert, dismissAlert } = useLiveEvents();
   const unitStatus = useUnitStatus();
 
@@ -466,84 +455,19 @@ export function DashboardView() {
             </div>
           </section>
 
-          {/* Map + right column */}
-          <section className="grid gap-4 xl:grid-cols-12">
-            <Card className="overflow-hidden p-0 xl:col-span-8">
-              <div className="h-[460px] sm:h-[540px]">
-                <SiteMap
-                  sites={CUSTOMER_SITES}
-                  units={mapUnits}
-                  heat={REGION_HEAT}
-                  selectedSiteId={selectedSiteId}
-                  onSelectSite={selectSite}
-                  focus={focus}
-                />
-              </div>
-            </Card>
-
-            <div className="flex min-h-0 flex-col gap-4 xl:col-span-4">
-              <Card className="flex min-h-0 flex-1 flex-col p-0">
-                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                  <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <Activity className="h-4 w-4 text-emerald-700" /> Latest detections
-                  </h2>
-                  <span className="text-[11px] text-slate-500">{selectedSite ? selectedSite.name : 'all sites'}</span>
-                </div>
-                <ul className="max-h-[490px] min-h-0 flex-1 overflow-y-auto">
-                  {detections.slice(0, 25).map((d) => {
-                    const photo = photoFor(d);
-                    return (
-                    <li key={d.event_id} className="flex items-center border-b border-slate-50 hover:bg-slate-50">
-                      <button
-                        type="button"
-                        onClick={() => setPhotoId(d.event_id)}
-                        title={photo.src ? 'Open photo' : 'No photo for this sighting'}
-                        aria-label={`Open photo: ${d.class === 'warn_animal' ? 'deer or moose' : 'small animal'} at ${d.device_id}`}
-                        className="group relative ml-4 h-9 w-12 shrink-0 overflow-hidden rounded-md bg-slate-100 outline-offset-2 focus-visible:outline-2 focus-visible:outline-emerald-600"
-                      >
-                        {photo.src ? (
-                          <img src={photo.src} alt="" loading="lazy" className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="flex h-full w-full items-center justify-center text-base">
-                            {d.class === 'warn_animal' ? '🦌' : '🦊'}
-                          </span>
-                        )}
-                        <span className="absolute inset-0 flex items-center justify-center bg-slate-950/45 text-white opacity-0 transition-opacity group-hover:opacity-100">
-                          <Maximize2 className="h-3.5 w-3.5" />
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedSiteId(d.site_id);
-                          setFocus({ point: { lat: d.lat, lng: d.lng }, zoom: 15, key: Date.now() });
-                        }}
-                        className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3 pr-4 text-left"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-900">
-                            {d.class === 'warn_animal' ? 'Deer / moose' : 'Small animal'}
-                            {d.warning && (
-                              <span className="rounded bg-red-50 px-1 text-[10px] font-bold text-red-700">WARNED</span>
-                            )}
-                            {d.source !== 'simulated' && (
-                              <span className="rounded bg-emerald-50 px-1 text-[10px] font-bold text-emerald-700">REAL</span>
-                            )}
-                          </span>
-                          <span className="block truncate text-[11px] text-slate-500">
-                            {unitIndex.get(d.device_id)?.site.name ?? d.device_id} · {d.device_id} ·{' '}
-                            {Math.round(d.confidence * 100)}%
-                          </span>
-                        </span>
-                        <span className="shrink-0 text-[11px] tabular-nums text-slate-400">{timeAgo(d.t, now)}</span>
-                      </button>
-                    </li>
-                    );
-                  })}
-                </ul>
-              </Card>
+          {/* Map */}
+          <Card className="overflow-hidden p-0">
+            <div className="h-[460px] sm:h-[540px]">
+              <SiteMap
+                sites={CUSTOMER_SITES}
+                units={mapUnits}
+                heat={REGION_HEAT}
+                selectedSiteId={selectedSiteId}
+                onSelectSite={selectSite}
+                focus={focus}
+              />
             </div>
-          </section>
+          </Card>
 
           {/* Charts */}
           <section className="grid gap-4 lg:grid-cols-3">
@@ -724,21 +648,6 @@ export function DashboardView() {
           </footer>
         </div>
       </div>
-
-      {photoId !== null && detections.some((d) => d.event_id === photoId) && (
-        <DetectionPhotoModal
-          detections={detections}
-          index={detections.findIndex((d) => d.event_id === photoId)}
-          onIndex={(i) => setPhotoId(detections[i]?.event_id ?? null)}
-          onClose={() => setPhotoId(null)}
-          siteName={(d) => unitIndex.get(d.device_id)?.site.name ?? d.device_id}
-          onShowOnMap={(d) => {
-            setPhotoId(null);
-            setSelectedSiteId(d.site_id);
-            setFocus({ point: { lat: d.lat, lng: d.lng }, zoom: 15, key: Date.now() });
-          }}
-        />
-      )}
     </div>
   );
 }
