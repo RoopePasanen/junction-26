@@ -437,7 +437,7 @@ threading.Thread(target=sender, name="dashboard-sender", daemon=True).start()
 event = None   # the sighting in progress, or None
 
 
-def track_event(label: str, conf: float, warned: bool):
+def track_event(label: str, conf: float, warned: bool, beacon_turned_on: bool = False):
     """Group frames into one event per sighting, publish it live, write it when it ends."""
     global event, new_upload
     t = time.time()
@@ -449,6 +449,12 @@ def track_event(label: str, conf: float, warned: bool):
         if event is not None:
             finish_event(event)
             event = None
+
+    # The beacon came back on after going dark: that's a new warning, so a new event
+    # (and a new alert on the dashboard), even if animals kept being seen in between.
+    if beacon_turned_on and event is not None and event["warning"]:
+        finish_event(event)
+        event = None
 
     if seen:
         started = event is None
@@ -518,8 +524,9 @@ def loop():
     if confirmed:
         last_warn = time.time()
 
+    was_on = beacon_on
     set_beacon(time.time() - last_warn < HOLD_S)
-    track_event(label, conf, confirmed)
+    track_event(label, conf, confirmed, beacon_turned_on=beacon_on and not was_on)
     time.sleep(CHECK_EVERY_S)
 
 
