@@ -1,0 +1,4 @@
+# Used with `railway up --no-gitignore` (the repo .gitignore makes Railway skip src/data/).
+node_modules/
+dist/
+/data/
